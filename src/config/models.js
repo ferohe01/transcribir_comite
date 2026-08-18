@@ -36,6 +36,17 @@ export const ASR_MODELS = {
     timestamps: true,
     diarization: false,
   },
+  'openai-transcribe-v2': {
+    label: 'OpenAI · GPT Transcribe',
+    hint: 'El que OpenAI recomienda para transcribir archivos.',
+    engine: 'openai',
+    model: 'gpt-transcribe',
+    envKey: 'OPENAI_API_KEY',
+    costPerMinute: 0.0045,
+    maxChunkBytes: 24 * 1024 * 1024,
+    timestamps: false,
+    diarization: false,
+  },
   'openai-mini-transcribe': {
     label: 'OpenAI · GPT-4o mini Transcribe',
     hint: 'Buena relacion calidad/precio.',

@@ -1,0 +1,16 @@
+# El desarrollo es en Windows y el despliegue en Linux (VPS con Docker). Sin
+# esto, Git guardaria finales de linea CRLF en el repositorio y los scripts
+# copiados a la imagen fallarian con errores del tipo "bad interpreter: ^M".
+* text=auto eol=lf
+
+# Binarios: que Git no intente convertir nada.
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.mp3  binary
+*.ogg  binary
+*.wav  binary
+*.m4a  binary
+*.exe  binary
+*.zip  binary
+*.db   binary

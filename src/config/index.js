@@ -18,7 +18,6 @@ const int = (value, fallback) => {
 export const config = {
   port: int(process.env.PORT, 3001),
   isProduction: process.env.NODE_ENV === 'production',
-  publicHost: process.env.PUBLIC_HOST || 'localhost',
   sessionSecret: process.env.SESSION_SECRET || '',
   redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
 
