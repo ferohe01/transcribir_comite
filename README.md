@@ -10,8 +10,8 @@ del navegador era una animacion temporizada, no el estado real.
 ## Que hace
 
 - **Transcribe audio largo rapido.** Comprime, trocea por silencios y transcribe
-  los fragmentos en paralelo. Una grabacion de una hora se procesa en unos
-  10 segundos con Groq y en minuto y medio con Gemini.
+  los fragmentos en paralelo. Una grabacion de una hora se procesa en 10
+  segundos con Groq y en minuto y medio con Gemini.
 - **Separa transcribir de procesar.** Primero obtiene la transcripcion literal
   con marcas de tiempo y hablantes; despues aplica una plantilla (acta de
   reunion, resumen, evaluacion de proyectos, o la tuya). Cambiar de plantilla
@@ -36,14 +36,16 @@ una maquina de 12 nucleos:
 
 | Etapa | Tiempo |
 |---|---|
-| Detectar pausas (solo decodifica) | 2,4 s |
-| Comprimir 6 fragmentos en paralelo | 3,5 s |
-| **Preparacion completa** | **5,9 s** |
-| Transcribir 6 fragmentos (Groq) | 3,8 s |
-| **Total con Groq Whisper Turbo** | **~10 s** |
-| Total con Gemini 3.7 Flash | 90 s |
+| Analizar y hashear | 1,0 s |
+| Preparar (detectar pausas 2,4 s + comprimir 6 fragmentos en paralelo 3,5 s) | 5,9 s |
+| Transcribir 6 fragmentos en paralelo (Groq) | 3,1 s |
+| Fusionar | 0,0 s |
+| **Total con Groq Whisper Turbo** | **10,0 s — 362x tiempo real** |
+| Total con Gemini 3.7 Flash | 90 s — 40x |
 | Resubir el mismo archivo | 2,3 s (cache) |
 | Aplicar otra plantilla | 8-13 s, sin retranscribir |
+
+Coste de esa hora de audio: $0,04 con Groq, $0,06 con Gemini.
 
 Dos decisiones explican casi todo el rendimiento:
 
@@ -92,7 +94,7 @@ muestra aquellos cuya clave de API este presente.
 
 | Motor | Cuando usarlo |
 |---|---|
-| **Groq · Whisper Large v3 Turbo** | Por defecto. El mas rapido (116-127x tiempo real) y el mas barato (~$0,04/hora). Marcas de tiempo exactas. No identifica hablantes. |
+| **Groq · Whisper Large v3 Turbo** | Por defecto. El mas rapido (362x tiempo real de principio a fin) y el mas barato (~$0,04/hora). Marcas de tiempo exactas. No identifica hablantes. |
 | Groq · Whisper Large v3 | Algo mas lento, mejor con audio dificil. |
 | OpenAI · GPT-4o (mini) Transcribe | Buena precision. La variante `diarize` identifica hablantes. |
 | Google · Gemini 3.7 Flash / 3.1 Pro | Identifica hablantes y produce texto mas limpio, pero las marcas de tiempo son estimadas y su filtro de contenido rechaza audio legitimo (ver abajo). |
