@@ -23,6 +23,10 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       SESSION_SECRET: ${SESSION_SECRET}
+      # Codigo de invitacion para el alta desde la pantalla de acceso. Vacio =
+      # sin registro publico. Solo lo necesita `app`: el worker no atiende
+      # peticiones web.
+      SIGNUP_CODE: ${SIGNUP_CODE:-}
       TRANSCRIBE_CONCURRENCY: ${TRANSCRIBE_CONCURRENCY:-4}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
       CHUNK_TARGET_SECONDS: ${CHUNK_TARGET_SECONDS:-600}

@@ -94,6 +94,12 @@ docker exec -it $(docker ps -qf name=app) npm run create-user -- tu@correo.com
 Si no hay terminal interactiva, el comando genera una contrasena y la muestra
 una sola vez.
 
+Para que el resto se cree la cuenta sin pasar por aqui, anade la variable
+`SIGNUP_CODE` en **Environment** y pulsa Redeploy: la pantalla de acceso
+mostrara entonces *Crear una cuenta* y pedira ese codigo. Reparte el codigo
+solo a quien deba usar el servicio; cada transcripcion gasta creditos de tus
+claves de API.
+
 ## Notas sobre Dokploy
 
 - **Subidas grandes.** Traefik no limita el tamano del cuerpo por defecto, asi
@@ -185,7 +191,8 @@ instala ffmpeg). Caddy pide el certificado solo, en unos segundos.
 
 ## 7. Crear usuarios
 
-No hay registro publico: los usuarios se dan de alta desde la terminal.
+Con `SIGNUP_CODE` vacio no hay registro publico y las altas se hacen desde la
+terminal:
 
 ```bash
 # Con contrasena generada automaticamente (se muestra una sola vez)
@@ -194,6 +201,18 @@ docker compose exec app npm run create-user -- persona@empresa.com
 # O eligiendola tu
 docker compose exec app npm run create-user -- persona@empresa.com --password "una-contrasena-larga"
 ```
+
+Si prefieres que cada uno se cree la cuenta, pon un codigo de invitacion en el
+`.env` y reinicia:
+
+```bash
+echo "SIGNUP_CODE=$(openssl rand -base64 12)" >> .env
+docker compose up -d
+```
+
+La pantalla de acceso ofrecera entonces *Crear una cuenta*, pidiendo ese codigo
+ademas del correo y la contrasena. Las cuentas asi creadas son siempre de rol
+`user`; los administradores siguen saliendo de `create-user --admin`.
 
 ## 8. Comprobar
 

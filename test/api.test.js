@@ -16,6 +16,9 @@ process.env.GEMINI_API_KEY = 'clave-falsa-de-prueba';
 process.env.OPENAI_API_KEY = '';
 process.env.GROQ_API_KEY = '';
 process.env.REDIS_URL = '';
+// Con codigo de invitacion el registro esta abierto; sin el, cerrado. Las
+// pruebas cubren los dos casos, y el segundo vaciando config.signup.code.
+process.env.SIGNUP_CODE = 'codigo-de-invitacion-de-prueba';
 
 const { config } = await import('../src/config/index.js');
 config.paths.data = sandbox;
@@ -143,6 +146,108 @@ test('el ciclo completo de sesion funciona', async () => {
 
   const after = await request('/api/auth/me');
   assert.equal(after.status, 401, 'tras salir, la sesion ya no vale');
+});
+
+// --- Registro -------------------------------------------------------------
+
+test('la pantalla de acceso sabe si el registro esta abierto, sin ver el codigo', async () => {
+  const response = await fetch(`${base}/api/auth/config`);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.signupEnabled, true);
+  assert.equal(JSON.stringify(body).includes('codigo-de-invitacion'), false);
+});
+
+test('sin el codigo de invitacion no se puede crear cuenta', async () => {
+  const request = client();
+  const response = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: 'intruso@ejemplo.com',
+      password: 'una-contrasena-larga',
+      code: 'me-lo-invento',
+    }),
+  });
+
+  assert.equal(response.status, 403);
+  assert.equal(users.byEmail('intruso@ejemplo.com'), undefined);
+});
+
+test('quien tiene el codigo crea su cuenta y entra directamente', async () => {
+  const request = client();
+  const response = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: 'Nueva@Ejemplo.com',
+      password: 'otra-contrasena-larga',
+      code: 'codigo-de-invitacion-de-prueba',
+    }),
+  });
+
+  assert.equal(response.status, 201);
+  const { user } = await response.json();
+  // El correo se normaliza a minusculas para que no haya dos cuentas que solo
+  // se distingan por como se escribio.
+  assert.equal(user.email, 'nueva@ejemplo.com');
+  assert.equal(user.role, 'user', 'un alta nunca crea administradores');
+
+  // El alta deja la sesion iniciada: no hace falta volver a escribir la clave.
+  const me = await request('/api/auth/me');
+  assert.equal(me.status, 200);
+  assert.equal((await me.json()).user.email, 'nueva@ejemplo.com');
+});
+
+test('un correo ya dado de alta no se puede registrar otra vez', async () => {
+  const request = client();
+  const response = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: 'NUEVA@ejemplo.com',
+      password: 'y-otra-contrasena-mas',
+      code: 'codigo-de-invitacion-de-prueba',
+    }),
+  });
+
+  assert.equal(response.status, 409);
+});
+
+test('una contrasena corta se rechaza al registrarse', async () => {
+  const request = client();
+  const response = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: 'corta@ejemplo.com',
+      password: 'corta',
+      code: 'codigo-de-invitacion-de-prueba',
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /10 caracteres/);
+});
+
+test('sin SIGNUP_CODE el registro queda cerrado', async () => {
+  const original = config.signup.code;
+  config.signup.code = '';
+  try {
+    const response = await fetch(`${base}/api/auth/config`);
+    assert.equal((await response.json()).signupEnabled, false);
+
+    const request = client();
+    const alta = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: 'cerrado@ejemplo.com',
+        password: 'una-contrasena-larga',
+        code: '',
+      }),
+    });
+    assert.equal(alta.status, 403);
+    assert.equal(users.byEmail('cerrado@ejemplo.com'), undefined);
+  } finally {
+    config.signup.code = original;
+  }
 });
 
 // --- Catalogo y plantillas ------------------------------------------------

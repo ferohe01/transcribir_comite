@@ -78,6 +78,19 @@ npm start                   # http://localhost:3001
 Sin `REDIS_URL` la cola corre dentro del propio proceso, asi que en local no
 hace falta levantar Redis ni un worker aparte.
 
+### Quien puede entrar
+
+Cada transcripcion gasta creditos de API de quien monta el servicio, asi que
+el acceso no esta abierto de par en par. Hay dos vias de alta:
+
+- **Codigo de invitacion.** Si `SIGNUP_CODE` tiene valor, la pantalla de
+  acceso ofrece *Crear una cuenta* y entra quien conozca el codigo. Es la via
+  para repartir acceso sin dar de alta a nadie a mano. Cambiar el codigo cierra
+  la puerta a quien lo tuviera, sin tocar las cuentas ya creadas.
+- **Terminal.** Con `SIGNUP_CODE` vacio el registro desaparece de la interfaz y
+  las altas se hacen solo con `npm run create-user`. Los administradores
+  (`--admin`) se crean siempre asi: un alta desde la web nunca lo es.
+
 ## Comandos
 
 | Comando | Para que |

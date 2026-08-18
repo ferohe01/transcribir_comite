@@ -21,6 +21,7 @@ const state = {
   templates: { builtin: [], custom: [] },
   jobs: [],
   currentJobId: null,
+  signupEnabled: null,   // null = aun no se ha preguntado al servidor
   transcript: null,   // { id, text, formatted }
   displayed: '',      // texto que se ve en pantalla ahora mismo
   eventSource: null,
@@ -92,6 +93,41 @@ function showLogin() {
   state.user = null;
   $('loginView').hidden = false;
   $('appView').hidden = true;
+  setAuthMode('login');
+  offerSignupIfOpen();
+}
+
+/**
+ * Pregunta una sola vez si el servidor admite altas. Se consulta aqui y no al
+ * arrancar porque showLogin() tambien se llama cuando caduca una sesion, y no
+ * tiene sentido repetir la peticion en cada caducidad.
+ */
+async function offerSignupIfOpen() {
+  if (state.signupEnabled === null) {
+    state.signupEnabled = await api('/api/auth/config')
+      .then((data) => Boolean(data.signupEnabled))
+      .catch(() => false);
+  }
+  $('authSwitch').hidden = !state.signupEnabled;
+}
+
+/** Alterna entre el formulario de acceso y el de alta dentro de la misma tarjeta. */
+function setAuthMode(mode) {
+  const registering = mode === 'register';
+  $('loginForm').hidden = registering;
+  $('registerForm').hidden = !registering;
+  $('loginError').hidden = true;
+  $('authSub').textContent = registering
+    ? 'Crea tu cuenta para empezar.'
+    : 'Inicia sesion para continuar.';
+  $('authSwitchText').textContent = registering ? 'Ya tienes cuenta?' : 'No tienes cuenta?';
+  $('authSwitchBtn').textContent = registering ? 'Iniciar sesion' : 'Crear una';
+  $(registering ? 'regEmail' : 'email').focus();
+}
+
+function showAuthError(message) {
+  $('loginError').textContent = message;
+  $('loginError').hidden = false;
 }
 
 async function showApp(user) {
@@ -115,10 +151,47 @@ $('loginForm').addEventListener('submit', async (event) => {
     $('password').value = '';
     await showApp(user);
   } catch (error) {
-    $('loginError').textContent = error.message;
-    $('loginError').hidden = false;
+    showAuthError(error.message);
   } finally {
     $('loginBtn').disabled = false;
+  }
+});
+
+$('authSwitchBtn').addEventListener('click', () => {
+  setAuthMode($('registerForm').hidden ? 'register' : 'login');
+});
+
+$('registerForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  $('loginError').hidden = true;
+
+  const password = $('regPassword').value;
+  // Se comprueba aqui y no en el servidor: el servidor no puede saber si dos
+  // contrasenas distintas son una errata o dos intentos legitimos.
+  if (password !== $('regPassword2').value) {
+    return showAuthError('Las dos contrasenas no coinciden.');
+  }
+
+  $('registerBtn').disabled = true;
+  try {
+    const { user } = await api('/api/auth/register', {
+      method: 'POST',
+      expectAuthError: true,
+      body: JSON.stringify({
+        email: $('regEmail').value,
+        password,
+        code: $('regCode').value.trim(),
+      }),
+    });
+    $('regPassword').value = '';
+    $('regPassword2').value = '';
+    $('regCode').value = '';
+    await showApp(user);
+    toast('Cuenta creada. Ya puedes transcribir.');
+  } catch (error) {
+    showAuthError(error.message);
+  } finally {
+    $('registerBtn').disabled = false;
   }
 });
 

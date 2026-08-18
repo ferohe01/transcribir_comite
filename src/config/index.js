@@ -21,6 +21,14 @@ export const config = {
   sessionSecret: process.env.SESSION_SECRET || '',
   redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
 
+  signup: {
+    // El registro desde la pantalla de acceso solo se abre si hay codigo de
+    // invitacion. Cada transcripcion gasta creditos de API, asi que sin
+    // puerta cualquiera que diera con el dominio podria crearse una cuenta y
+    // consumirlos. Vacio = solo altas por terminal (npm run create-user).
+    code: (process.env.SIGNUP_CODE ?? '').trim(),
+  },
+
   paths: {
     root: ROOT,
     public: path.join(ROOT, 'src', 'public'),
@@ -65,6 +73,11 @@ export function validateConfig() {
   );
   if (!hasKey) {
     problems.push('No hay ninguna clave de proveedor configurada (GROQ_API_KEY, OPENAI_API_KEY o GEMINI_API_KEY).');
+  }
+  // Un codigo corto no protege de nada: se adivina a fuerza de intentos y deja
+  // el registro abierto de hecho. Mejor no arrancar que dar esa falsa sensacion.
+  if (config.signup.code && config.signup.code.length < 8) {
+    problems.push('SIGNUP_CODE es demasiado corto (min. 8 caracteres). Dejalo vacio para cerrar el registro.');
   }
   return problems;
 }

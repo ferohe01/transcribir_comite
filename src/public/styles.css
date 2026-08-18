@@ -61,6 +61,21 @@ input, select, textarea { font: inherit; color: inherit; }
 .login-card h1 { font-size: 1.5rem; margin-bottom: 6px; }
 .login-card p.sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
 
+.login-card .switch {
+  margin-top: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.inline-btn {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: underline;
+  font-size: inherit;
+}
+.inline-btn:hover { color: var(--brand-dark); }
+
 /* --- Estructura ----------------------------------------------------------- */
 
 .app { max-width: 1400px; margin: 0 auto; padding: 20px; }

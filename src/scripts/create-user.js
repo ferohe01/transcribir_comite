@@ -1,8 +1,11 @@
 /**
  * Alta de usuarios desde la terminal.
  *
- * No hay registro publico a proposito: en un servicio que gasta creditos de
- * API por cada uso, quien entra lo decide el administrador.
+ * Es la unica via de alta cuando SIGNUP_CODE esta vacio, y siempre la unica
+ * para crear administradores: el registro desde la web, cuando esta abierto,
+ * crea cuentas de rol 'user' y pide el codigo de invitacion. En un servicio
+ * que gasta creditos de API por cada uso, quien entra no puede quedar al
+ * alcance de cualquiera que de con el dominio.
  *
  *   npm run create-user -- persona@correo.com
  *   npm run create-user -- persona@correo.com --admin
