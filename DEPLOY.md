@@ -1,6 +1,14 @@
 # Despliegue en el VPS
 
-Pasos exactos, de principio a fin. Tiempo estimado: 15 minutos.
+Hay dos caminos, segun como este montado el servidor:
+
+- **[Con Dokploy](#despliegue-con-dokploy)** — si el VPS ya tiene Dokploy, que
+  trae su propio Traefik. Usa `docker-compose.dokploy.yml`.
+- **[Docker Compose a pelo](#despliegue-con-docker-compose)** — servidor limpio,
+  sin nada mas escuchando en los puertos 80 y 443. Usa `docker-compose.yml`,
+  que incluye Caddy.
+
+Los dos comparten los pasos de **Antes de empezar** y de **Crear usuarios**.
 
 ## Antes de empezar
 
@@ -12,6 +20,103 @@ en otras carpetas del equipo.
 1. OpenAI: https://platform.openai.com/api-keys — revoca la antigua y crea una nueva.
 2. Gemini: https://aistudio.google.com/apikey — igual.
 3. Groq (recomendado, gratuito): https://console.groq.com/keys
+
+---
+
+# Despliegue con Dokploy
+
+Dokploy ya ocupa los puertos 80 y 443 con su propio Traefik, asi que este
+proyecto trae un compose aparte, `docker-compose.dokploy.yml`, **sin Caddy y
+sin publicar puertos**. Usar el `docker-compose.yml` normal en Dokploy falla
+por conflicto de puertos.
+
+## 1. Crear el servicio
+
+En Dokploy: **Create Service → Compose**.
+
+| Campo | Valor |
+|---|---|
+| Provider | GitHub |
+| Repository | `ferohe01/transcribir_comite` |
+| Branch | `MIT-cloud-devops` |
+| Compose Path | `docker-compose.dokploy.yml` |
+
+Si el repositorio es privado, conecta antes la cuenta de GitHub en
+**Settings → Git Providers**.
+
+## 2. Variables de entorno
+
+En la pestana **Environment** del servicio. Dokploy las escribe en un `.env`
+que el compose consume:
+
+```ini
+GROQ_API_KEY=gsk_...
+GEMINI_API_KEY=...
+SESSION_SECRET=<resultado de: openssl rand -hex 32>
+PUBLIC_HOST=transcript.tudominio.com
+```
+
+`SESSION_SECRET` debe tener al menos 32 caracteres o el servicio no arranca.
+
+## 3. Dominio
+
+En la pestana **Domains**, anadir uno:
+
+| Campo | Valor |
+|---|---|
+| Host | `transcript.tudominio.com` |
+| Service Name | `app` |
+| Container Port | `3001` |
+| HTTPS | activado (Let's Encrypt) |
+
+El registro `A` del dominio debe apuntar ya a la IP del VPS: Traefik no
+consigue el certificado hasta que el DNS resuelva.
+
+## 4. Desplegar
+
+Pulsa **Deploy**. La primera vez tarda unos minutos (se compila
+better-sqlite3 y se instala ffmpeg en la imagen).
+
+Comprobacion:
+
+```bash
+curl -f https://transcript.tudominio.com/api/health
+```
+
+## 5. Crear el primer usuario
+
+Desde la pestana **Terminal** del servicio, o por SSH en el VPS:
+
+```bash
+docker exec -it $(docker ps -qf name=app) npm run create-user -- tu@correo.com
+```
+
+Si no hay terminal interactiva, el comando genera una contrasena y la muestra
+una sola vez.
+
+## Notas sobre Dokploy
+
+- **Subidas grandes.** Traefik no limita el tamano del cuerpo por defecto, asi
+  que un audio de varios cientos de MB pasa sin tocar nada. Si tienes un
+  Cloudflare por delante en modo proxy, ahi si hay un limite de 100 MB en los
+  planes gratuitos: pon el registro en modo "DNS only" o comprime el audio
+  antes de subirlo.
+- **La barra de progreso** viaja por Server-Sent Events. Traefik no almacena la
+  respuesta en un buffer, asi que funciona sin configuracion extra.
+- **Actualizar**: `git push` y luego **Redeploy** en Dokploy. Los volumenes
+  `data` y `redis` sobreviven al redespliegue.
+- **Copia de seguridad**: todo lo que importa esta en el volumen `data`.
+  ```bash
+  docker run --rm -v transcribir_comite_data:/d -v $PWD:/b alpine     tar czf /b/backup-$(date +%F).tar.gz -C /d .
+  ```
+  El nombre exacto del volumen sale de `docker volume ls`.
+
+---
+
+# Despliegue con Docker Compose
+
+Para un VPS limpio, sin Dokploy ni nada mas en los puertos 80 y 443. Este
+camino usa `docker-compose.yml`, que incluye Caddy para el HTTPS.
 
 ## 1. Requisitos en el VPS
 

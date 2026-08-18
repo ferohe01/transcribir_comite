@@ -1,0 +1,90 @@
+# Variante para Dokploy.
+#
+# Diferencia principal con docker-compose.yml: aqui NO hay Caddy ni se publica
+# ningun puerto. Dokploy ya trae su propio Traefik ocupando el 80 y el 443, y
+# es el quien resuelve el dominio y el certificado TLS. Levantar Caddy al lado
+# haria que el despliegue fallase por conflicto de puertos.
+#
+# El dominio se configura en la interfaz de Dokploy (pestana Domains del
+# servicio `app`, puerto 3001), no en este archivo.
+#
+# Uso: en Dokploy, crear un servicio de tipo "Compose", apuntarlo a este
+# repositorio y poner `docker-compose.dokploy.yml` como Compose Path.
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      # Se rellenan desde la pestana Environment de Dokploy.
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SESSION_SECRET: ${SESSION_SECRET}
+      PUBLIC_HOST: ${PUBLIC_HOST}
+      TRANSCRIBE_CONCURRENCY: ${TRANSCRIBE_CONCURRENCY:-4}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      CHUNK_TARGET_SECONDS: ${CHUNK_TARGET_SECONDS:-600}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
+    volumes:
+      - data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    expose:
+      - "3001"
+    networks:
+      # Traefik solo alcanza los contenedores que esten en su red.
+      - dokploy-network
+      - interna
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["node", "src/queue/worker.js"]
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SESSION_SECRET: ${SESSION_SECRET}
+      TRANSCRIBE_CONCURRENCY: ${TRANSCRIBE_CONCURRENCY:-4}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      CHUNK_TARGET_SECONDS: ${CHUNK_TARGET_SECONDS:-600}
+    volumes:
+      # Comparte el volumen con `app`: el worker escribe el progreso y las
+      # transcripciones en la misma base de datos SQLite.
+      - data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    # El worker no necesita estar en la red de Traefik: nadie lo llama desde
+    # fuera.
+    networks:
+      - interna
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - interna
+
+networks:
+  dokploy-network:
+    external: true
+  interna:
+
+volumes:
+  data:
+  redis:

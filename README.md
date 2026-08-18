@@ -58,7 +58,9 @@ Dos decisiones explican casi todo el rendimiento:
 
 ## Puesta en marcha
 
-Para el VPS, sigue **[DEPLOY.md](DEPLOY.md)**.
+Para el VPS, sigue **[DEPLOY.md](DEPLOY.md)**: hay una via para servidores con
+Dokploy (`docker-compose.dokploy.yml`, sin Caddy porque Traefik ya cubre el
+HTTPS) y otra para un servidor limpio (`docker-compose.yml`, con Caddy).
 
 Para desarrollo local necesitas Node 22+ y ffmpeg en el PATH:
 
