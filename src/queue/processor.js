@@ -81,6 +81,7 @@ export async function processJob({ jobId, inputPath, asrModelId, language, hint 
       costEstimate: result.costEstimate,
       elapsedMs: result.elapsedMs,
       chunkCount: result.chunkCount,
+      fellBack: result.fellBack,
     });
 
     const seconds = result.elapsedMs / 1000;

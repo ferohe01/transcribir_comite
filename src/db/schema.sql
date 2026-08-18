@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   cost_estimate  REAL,
   elapsed_ms     INTEGER,
   chunk_count    INTEGER,
+  -- Fragmentos que atendio el modelo de respaldo y por que. Se muestra en la
+  -- interfaz: usar otro modelo cambia el precio y la calidad.
+  fell_back      TEXT,
   created_at     TEXT NOT NULL DEFAULT (datetime('now')),
   finished_at    TEXT
 );

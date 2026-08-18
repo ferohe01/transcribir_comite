@@ -50,8 +50,9 @@ export async function fetchWithRetry(url, options = {}, {
   provider = 'api',
   attempts = 4,
   timeoutMs = 300_000,
-  // Tope de espera acumulada entre reintentos. Pasado eso se falla con el
-  // mensaje del proveedor, que es quien sabe cuanto falta de verdad.
+  // Tope de espera acumulada entre reintentos. Quien llama puede acortarlo:
+  // si hay un motor de respaldo disponible, esperar a que el proveedor
+  // saturado se recupere sale mucho mas caro en tiempo que cambiar de motor.
   maxTotalWaitMs = 150_000,
   onRetry = null,
   signal,

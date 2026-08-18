@@ -361,6 +361,7 @@ function selectJob(jobId) {
 async function openJob(jobId) {
   selectJob(jobId);
   $('resultError').hidden = true;
+  $('resultNote').hidden = true;
 
   const { job, transcript } = await api(`/api/jobs/${jobId}`);
   $('resultTitle').textContent = job.filename;
@@ -387,9 +388,28 @@ async function openJob(jobId) {
   renderStats(job, transcript);
 }
 
+const MOTIVO_RESPALDO = {
+  RATE_LIMITED: 'el motor principal agoto su cuota',
+  BLOCKED: 'el motor principal rechazo el audio por su filtro de contenido',
+  EMPTY_RESPONSE: 'el motor principal no devolvio texto',
+};
+
 function renderStats(job, transcript) {
   const speed = job.elapsed_ms > 0 ? job.duration_s / (job.elapsed_ms / 1000) : null;
   const words = (transcript?.text ?? '').split(/\s+/).filter(Boolean).length;
+
+  // Si algun fragmento lo atendio otro modelo, hay que decirlo: cambia el
+  // precio y puede cambiar la calidad.
+  const fellBack = job.fell_back ? JSON.parse(job.fell_back) : [];
+  if (fellBack.length > 0) {
+    const motivo = MOTIVO_RESPALDO[fellBack[0].reason] ?? 'el motor principal fallo';
+    $('resultNote').textContent =
+      `${fellBack.length} de ${job.chunk_count} fragmentos se transcribieron con ` +
+      `${fellBack[0].usedModel} porque ${motivo}.`;
+    $('resultNote').hidden = false;
+  } else {
+    $('resultNote').hidden = true;
+  }
 
   const cells = [
     ['Duracion', formatDuration(job.duration_s)],

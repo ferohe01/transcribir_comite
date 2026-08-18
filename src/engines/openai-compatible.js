@@ -33,7 +33,7 @@ function parseSegments(payload) {
 }
 
 export function createOpenAiCompatibleEngine({ baseUrl, providerName }) {
-  return async function transcribeChunk({ filePath, entry, language, hint, signal, onRetry }) {
+  return async function transcribeChunk({ filePath, entry, language, hint, signal, onRetry, maxWaitMs }) {
     const buffer = await fs.readFile(filePath);
     const form = new FormData();
 
@@ -53,7 +53,7 @@ export function createOpenAiCompatibleEngine({ baseUrl, providerName }) {
         headers: { Authorization: `Bearer ${process.env[entry.envKey]}` },
         body: form,
       },
-      { provider: providerName, signal, onRetry },
+      { provider: providerName, signal, onRetry, maxTotalWaitMs: maxWaitMs },
     );
 
     const payload = await response.json();

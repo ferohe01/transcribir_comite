@@ -240,3 +240,37 @@ test('los nombres de hablante llegan aunque el proveedor use otra clave', async 
 
   await fs.rm(file, { force: true });
 });
+
+test('el motor respeta el presupuesto de espera que le pasan', async () => {
+  process.env.TEST_KEY = 'k';
+  const engine = createOpenAiCompatibleEngine({ baseUrl: 'https://api.test/v1', providerName: 'Test' });
+  const file = await tmpAudio();
+
+  // Un 429 con Retry-After de 140 s, como el de Groq al agotar su cuota.
+  const saturado = () => jsonResponse(
+    { error: { message: 'Rate limit reached on seconds of audio per hour' } },
+    429,
+    { 'retry-after': '140' },
+  );
+
+  // Con un presupuesto corto se rinde de inmediato, para que el pipeline pueda
+  // pasar al motor de respaldo en lugar de esperar mas de dos minutos.
+  await withFakeFetch(saturado, async (calls) => {
+    const started = Date.now();
+    await assert.rejects(
+      () => engine({
+        filePath: file,
+        entry: { model: 'm', envKey: 'TEST_KEY' },
+        maxWaitMs: 15_000,
+      }),
+      (error) => {
+        assert.equal(error.rateLimited, true, 'el motivo llega marcado como limite de uso');
+        return true;
+      },
+    );
+    assert.equal(calls.length, 1, 'no espera los 140 s que pide el proveedor');
+    assert.ok(Date.now() - started < 1000);
+  });
+
+  await fs.rm(file, { force: true });
+});

@@ -91,6 +91,13 @@ export async function runPipeline({
   let done = 0;
   const fallbackId = pickFallback(asrModelId);
   const fellBack = [];
+
+  // Cuanto esperar a que un proveedor saturado se recupere antes de pasar al
+  // de respaldo. Con alternativa disponible no compensa esperar: medido sobre
+  // la grabacion de una hora, aguantar el `Retry-After` de Groq costaba 278 s,
+  // frente a los ~40 s de cambiar de motor. Sin alternativa si merece la pena
+  // esperar, porque lo unico que hay al otro lado es perder el trabajo.
+  const maxWaitMs = fallbackId ? 15_000 : 150_000;
   report('transcribing', 0, `0 / ${chunks.length} fragmentos`);
 
   const results = await mapWithConcurrency(
@@ -98,6 +105,7 @@ export async function runPipeline({
     Math.min(config.audio.transcribeConcurrency, chunks.length),
     async (chunk) => {
       let result;
+      let usado = entry;
       try {
         result = await engine.transcribeChunk({
           filePath: chunk.path,
@@ -105,6 +113,7 @@ export async function runPipeline({
           language,
           hint,
           signal,
+          maxWaitMs,
           // Un limite de uso del proveedor no debe verse como una barra
           // congelada: se dice cuanto se espera y por que.
           onRetry: ({ delayMs, rateLimited }) => {
@@ -118,12 +127,20 @@ export async function runPipeline({
           },
         });
       } catch (error) {
-        // Un fragmento rechazado por el filtro de contenido no es un fallo del
-        // pipeline: otro modelo suele aceptarlo. Perder una hora de trabajo
-        // porque un minuto de audio le parecio sospechoso a un filtro no es
-        // aceptable.
-        const recoverable = error.code === 'BLOCKED' || error.code === 'EMPTY_RESPONSE';
-        if (!recoverable || !fallbackId) throw error;
+        // Hay dos fallos que no son culpa del audio ni del pipeline, y que
+        // otro proveedor resuelve sin mas:
+        //
+        //  - el filtro de contenido de Gemini, que rechaza grabaciones de
+        //    reunion perfectamente normales;
+        //  - haber agotado la cuota del proveedor, que en los planes
+        //    gratuitos llega enseguida (Groq permite 7.200 s de audio por
+        //    hora).
+        //
+        // En ambos casos, tirar a la basura una transcripcion de una hora
+        // teniendo otro motor configurado y libre no tiene sentido.
+        const motivo = error.code ?? (error.rateLimited ? 'RATE_LIMITED' : null);
+        const recuperable = motivo === 'BLOCKED' || motivo === 'EMPTY_RESPONSE' || motivo === 'RATE_LIMITED';
+        if (!recuperable || !fallbackId) throw error;
 
         const fallbackEntry = getAsrModel(fallbackId);
         result = await getEngine(fallbackEntry.engine).transcribeChunk({
@@ -133,7 +150,8 @@ export async function runPipeline({
           hint,
           signal,
         });
-        fellBack.push({ index: chunk.index, reason: error.code, usedModel: fallbackId });
+        usado = fallbackEntry;
+        fellBack.push({ index: chunk.index, reason: motivo, usedModel: fallbackId });
       }
 
       done += 1;
@@ -143,6 +161,7 @@ export async function runPipeline({
         index: chunk.index,
         offsetSeconds: chunk.offsetSeconds,
         durationSeconds: chunk.durationSeconds,
+        costPerMinute: usado.costPerMinute ?? null,
       };
     },
   );
@@ -163,7 +182,12 @@ export async function runPipeline({
     fellBack,
     fromCache: false,
     elapsedMs: Date.now() - started,
-    costEstimate: entry.costPerMinute ? (source.durationSeconds / 60) * entry.costPerMinute : null,
+    // Se suma fragmento a fragmento con la tarifa del modelo que lo atendio:
+    // si alguno se fue al de respaldo, su precio es otro.
+    costEstimate: results.reduce(
+      (total, r) => total + ((r.durationSeconds ?? 0) / 60) * (r.costPerMinute ?? 0),
+      0,
+    ),
     compression: {
       originalBytes: source.sizeBytes,
       normalizedBytes: prepared.totalBytes,

@@ -18,8 +18,10 @@ del navegador era una animacion temporizada, no el estado real.
   tarda segundos y no vuelve a transcribir ni a pagar el audio.
 - **Cola de trabajos con progreso real.** Puedes cerrar la pestana: el trabajo
   sigue en el servidor y aparece luego en tu historial.
-- **Varios motores.** Groq, OpenAI y Gemini, seleccionables por trabajo. Si uno
-  rechaza un fragmento, otro lo recoge automaticamente.
+- **Varios motores con respaldo automatico.** Groq, OpenAI y Gemini,
+  seleccionables por trabajo. Si el motor elegido rechaza un fragmento o agota
+  su cuota, otro lo recoge y el trabajo termina igual; la interfaz dice cuantos
+  fragmentos se desviaron y por que.
 - **Cache por archivo.** Resubir el mismo audio devuelve el resultado al
   instante en lugar de volver a pagarlo.
 
@@ -123,10 +125,13 @@ catalogo que un proveedor haya retirado.
   por fragmento de diez minutos. Encarece y ralentiza frente a un modelo ASR
   puro.
 - **El plan gratuito de Groq permite 7.200 segundos de audio por hora** (dos
-  horas). Al superarlo responde 429 con `Retry-After: 100` de forma sostenida.
-  El sistema espera y reintenta, informando del motivo en la barra de progreso,
-  pero se rinde en lugar de quedarse colgado si la espera se alarga. Para uso
-  intensivo hay que pasar al plan de pago.
+  horas). Al superarlo responde 429 con `Retry-After` de dos minutos largos, de
+  forma sostenida. El sistema no se queda colgado: informa del motivo en la
+  barra de progreso y, si hay otro motor configurado, pasa a el fragmento a
+  fragmento y avisa en pantalla de cuantos se transcribieron con el respaldo y
+  por que. Sin motor alternativo, espera hasta 150 s y despues falla con el
+  mensaje del proveedor. Para uso intensivo, plan de pago de Groq o repartir
+  con OpenAI.
 
 ## Estructura
 

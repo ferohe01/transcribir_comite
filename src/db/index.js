@@ -50,6 +50,10 @@ function migrate(database) {
 
   // En una base de datos nueva no hay nada que migrar: el esquema, que se
   // aplica justo despues, ya la crea completa.
+  if (existeTabla('jobs') && !columnas('jobs').includes('fell_back')) {
+    database.exec('ALTER TABLE jobs ADD COLUMN fell_back TEXT');
+  }
+
   if (existeTabla('transcripts') && !columnas('transcripts').includes('cache_key')) {
     // Las transcripciones anteriores se quedan sin clave y por tanto fuera de
     // la cache. Es lo correcto: se hicieron sin registrar con que idioma ni
@@ -113,16 +117,23 @@ export const jobs = {
       .run(status ?? null, stage ?? null, progress ?? null, detail ?? null, id);
   },
 
-  finish(id, { durationSeconds, costEstimate, elapsedMs, chunkCount }) {
+  finish(id, { durationSeconds, costEstimate, elapsedMs, chunkCount, fellBack }) {
     getDb()
       .prepare(
         `UPDATE jobs
             SET status = 'done', progress = 100, stage = 'done', error = NULL,
                 duration_s = ?, cost_estimate = ?, elapsed_ms = ?, chunk_count = ?,
-                finished_at = datetime('now')
+                fell_back = ?, finished_at = datetime('now')
           WHERE id = ?`,
       )
-      .run(durationSeconds, costEstimate, elapsedMs, chunkCount, id);
+      .run(
+        durationSeconds,
+        costEstimate,
+        elapsedMs,
+        chunkCount,
+        fellBack?.length ? JSON.stringify(fellBack) : null,
+        id,
+      );
   },
 
   fail(id, message) {
