@@ -1,0 +1,153 @@
+================================================================================
+  CÓMO AGREGAR ÍCONO AL EJECUTABLE .EXE
+================================================================================
+
+RESUMEN
+-------
+Para que el archivo convierte_audio_texto.exe tenga un ícono personalizado,
+necesitas seguir estos pasos después de generar el ejecutable.
+
+
+PASO 1: CONVERTIR EL ÍCONO DE PNG A ICO
+----------------------------------------
+Windows requiere archivos de ícono en formato .ICO (no PNG)
+
+Opción A - Conversión Online (Más Fácil):
+   1. Ve a: https://convertio.co/es/png-ico/
+   2. Sube el archivo icono.png
+   3. Selecciona tamaño: 256x256 (recomendado)
+   4. Descarga el archivo icono.ico
+   5. Guárdalo en la carpeta audio-transcription-app\
+
+Opción B - Conversión con Herramienta:
+   1. Ve a: https://www.icoconverter.com/
+   2. Sube icono.png
+   3. Descarga como ICO
+   4. Guárdalo en la carpeta audio-transcription-app\
+
+Opción C - Con Software:
+   - GIMP (gratuito): Abre PNG, Exporta como ICO
+   - IrfanView: Abre PNG, Guardar como ICO
+   - Paint.NET con plugin ICO
+
+
+PASO 2: INSTALAR RCEDIT (Herramienta para modificar .EXE)
+----------------------------------------------------------
+
+Opción A - Usando NPM (Recomendado):
+   Abre CMD o PowerShell y ejecuta:
+   
+   npm install -g rcedit
+
+Opción B - Descarga Manual:
+   1. Ve a: https://github.com/electron/rcedit/releases
+   2. Descarga: rcedit-x64.exe
+   3. Renómbralo a: rcedit.exe
+   4. Guárdalo en: C:\Windows\ o en la carpeta audio-transcription-app\
+
+
+PASO 3: GENERAR EL EJECUTABLE
+------------------------------
+En la carpeta audio-transcription-app\, ejecuta:
+
+   npm run build
+
+Esto creará: convierte_audio_texto.exe
+
+
+PASO 4: AGREGAR EL ÍCONO AL EJECUTABLE
+---------------------------------------
+
+Método Automático (Recomendado):
+   Haz doble clic en: agregar-icono.bat
+   
+   El script:
+   1. Verificará que existan los archivos necesarios
+   2. Te guiará en el proceso
+   3. Agregará el ícono automáticamente
+
+Método Manual - Con rcedit:
+   Abre CMD en la carpeta audio-transcription-app\ y ejecuta:
+   
+   rcedit convierte_audio_texto.exe --set-icon icono.ico
+
+Método Manual - Con ResourceHacker:
+   1. Descarga ResourceHacker: http://www.angusj.com/resourcehacker/
+   2. Abre convierte_audio_texto.exe con ResourceHacker
+   3. Ve a: Action > Replace Icon
+   4. Selecciona icono.ico
+   5. Guarda el archivo (Ctrl+S)
+
+
+PASO 5: CREAR ACCESO DIRECTO EN EL ESCRITORIO
+----------------------------------------------
+1. Haz clic derecho en convierte_audio_texto.exe
+2. Selecciona "Enviar a" > "Escritorio (crear acceso directo)"
+3. El acceso directo mostrará el ícono personalizado
+
+O también puedes crear acceso directo a start-hidden.vbs
+para iniciar sin mostrar la ventana de consola.
+
+
+VERIFICAR QUE EL ÍCONO SE AGREGÓ CORRECTAMENTE
+-----------------------------------------------
+1. Navega a la carpeta donde está convierte_audio_texto.exe
+2. Verifica que el archivo muestre el ícono personalizado
+3. Si no lo ves, actualiza la vista (F5) o reinicia el explorador
+
+
+SOLUCIÓN DE PROBLEMAS
+----------------------
+
+▶ "rcedit no se reconoce como comando"
+   - Instala rcedit con: npm install -g rcedit
+   - O descárgalo manualmente y agrégalo al PATH
+
+▶ "Error: icono.ico not found"
+   - Asegúrate de haber convertido icono.png a icono.ico
+   - Verifica que icono.ico esté en la carpeta audio-transcription-app\
+
+▶ "El ícono no se muestra en el escritorio"
+   - Borra el caché de íconos de Windows
+   - Reinicia el Explorador de Windows
+   - En algunos casos, reinicia la PC
+
+▶ "ResourceHacker muestra error"
+   - Asegúrate de cerrar cualquier instancia de la aplicación
+   - Ejecuta ResourceHacker como administrador
+
+▶ "El .exe pierde el ícono después de reconstruir"
+   - Es normal, debes agregar el ícono cada vez que ejecutes npm run build
+   - Usa el script agregar-icono.bat después de cada build
+
+
+AUTOMATIZAR EL PROCESO (AVANZADO)
+----------------------------------
+Si quieres que el ícono se agregue automáticamente al hacer build,
+puedes modificar package.json:
+
+1. Instala: npm install --save-dev rcedit
+2. Modifica el script "build" en package.json:
+   
+   "build": "pkg server.js --target node18-win-x64 --output convierte_audio_texto.exe && rcedit convierte_audio_texto.exe --set-icon icono.ico"
+
+
+ARCHIVOS NECESARIOS
+-------------------
+✓ icono.png     ← Archivo original (ya existe)
+✓ icono.ico     ← Debes crearlo (convertir PNG a ICO)
+✓ rcedit.exe    ← Herramienta para modificar el .exe
+✓ convierte_audio_texto.exe  ← Ejecutable generado
+
+
+RECURSOS ÚTILES
+----------------
+• Convertir PNG a ICO: https://convertio.co/es/png-ico/
+• rcedit GitHub: https://github.com/electron/rcedit
+• ResourceHacker: http://www.angusj.com/resourcehacker/
+• GIMP (editor gratuito): https://www.gimp.org/
+
+
+================================================================================
+Última actualización: Enero 2026
+================================================================================

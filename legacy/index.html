@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcriptor de Audio con IA</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-microphone"></i> Transcriptor de Audio con IA</h1>
+            <p>Convierte tu audio a texto usando inteligencia artificial</p>
+        </header>
+
+        <main class="two-column-layout">
+            <div class="left-column">
+                <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h3>Arrastra tu archivo de audio aquí</h3>
+                    <p>o haz clic para seleccionar</p>
+                    <input type="file" id="audioFile" accept="audio/*" hidden>
+                    <div class="supported-formats">
+                        <small>Formatos soportados: MP3, WAV, M4A, OGG, AAC, WMA (máximo 50MB)</small>
+                    </div>
+                </div>
+                
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-details">
+                        <i class="fas fa-file-audio"></i>
+                        <div class="file-text">
+                            <span class="file-name" id="fileName"></span>
+                            <span class="file-size" id="fileSize"></span>
+                        </div>
+                        <button class="remove-file" id="removeFile">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <audio controls id="audioPreview" style="width: 100%; margin-top: 10px;"></audio>
+                </div>
+            </div>
+
+            <div class="options-section">
+                <div class="option-group">
+                    <label for="llmSelect">
+                        <i class="fas fa-robot"></i> Selecciona el modelo de IA
+                    </label>
+                    <select id="llmSelect">
+                        <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Recomendado)</option>
+                        <option value="gemini-2.5-pro">Google Gemini 2.5 Pro</option>
+                        <option value="gpt-4o">OpenAI GPT-4o</option>
+                        <option value="gpt-5">OpenAI GPT-5</option>
+                    </select>
+                </div>
+
+                <div class="option-group">
+                    <label>
+                        <i class="fas fa-cog"></i> Tipo de Prompt
+                    </label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="transcriptionType" value="default" checked>
+                            <span class="radio-custom"></span>
+                            Prompt por Defecto
+                            <button class="info-btn" id="showDefaultPromptBtn" type="button" title="Ver prompt por defecto">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="transcriptionType" value="custom">
+                            <span class="radio-custom"></span>
+                            Prompt Personalizado
+                        </label>
+                    </div>
+                </div>
+
+                <div class="custom-instructions" id="customInstructions" style="display: none;">
+                    <label for="customPrompt">
+                        <i class="fas fa-edit"></i> Prompt Personalizado
+                    </label>
+                    <textarea 
+                        id="customPrompt" 
+                        placeholder="Ejemplo: Transcribe el audio y resume los puntos principales en formato de lista..."
+                        rows="4"
+                    ></textarea>
+                    <small class="help-text">
+                        Describe cómo quieres que la IA procese tu audio
+                    </small>
+                </div>
+            </div>
+
+            <div class="action-section">
+                <button class="transcribe-btn" id="transcribeBtn" disabled>
+                    <i class="fas fa-play"></i>
+                    Iniciar Transcripción
+                </button>
+            </div>
+
+            <div class="loading-section" id="loadingSection" style="display: none;">
+                <div class="loading-spinner"></div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-percentage" id="progressPercentage">0%</div>
+                </div>
+                <p id="loadingMessage">Procesando tu audio...</p>
+                <small id="loadingDetails">Preparando archivo...</small>
+                <div class="estimated-time" id="estimatedTime" style="display: none;">
+                    <i class="fas fa-clock"></i>
+                    <span>Tiempo estimado: <span id="timeRemaining">--</span></span>
+                </div>
+            </div>
+
+            </div>
+
+            <!-- Columna derecha - Resultado -->
+            <div class="right-column">
+                <div class="result-section" id="resultSection">
+                    <div class="result-header">
+                        <h3><i class="fas fa-file-alt"></i> Resultado de la transcripción</h3>
+                        <div class="result-actions">
+                            <button class="copy-btn" id="copyBtn">
+                                <i class="fas fa-copy"></i> Copiar
+                            </button>
+                            <button class="download-btn" id="downloadBtn">
+                                <i class="fas fa-download"></i> Descargar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="result-content">
+                        <textarea id="transcriptionResult" placeholder="Aquí aparecerá el resultado de la transcripción..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>© 2025 Transcriptor de Audio con IA - Powered by Gemini 2.5 & OpenAI GPT</p>
+        </footer>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Modal para mostrar el prompt por defecto -->
+    <div class="modal" id="defaultPromptModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-alt"></i> Prompt por Defecto</h3>
+                <button class="modal-close" id="closeModalBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <pre id="defaultPromptText">Este audio corresponde a la evaluación de proyectos, para cada uno de los proyectos evaluados:
+
+Extrae el código del proyecto.
+
+Extrae exactamente los comentarios de los 3 evaluadores para cada proyecto.
+(No es necesario identificar el nombre de cada evaluador, solo separa claramente los 3 comentarios).
+
+No incluyas información de proyectos que no fueron evaluados.
+
+El formato de respuesta debe ser el siguiente para cada proyecto:
+Proyecto: [código]
+Comentario 1: [texto literal del primer comentario]
+Comentario 2: [texto literal del segundo comentario]
+Comentario 3: [texto literal del tercer comentario]
+Estado del proyecto: [Aprobado / Desaprobado]
+
+Repite esta estructura para cada uno de los proyectos evaluados, manteniendo el texto exactamente como aparece en el audio, sin resumir ni modificar los comentarios.</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="copy-prompt-btn" id="copyPromptBtn">
+                    <i class="fas fa-copy"></i> Copiar Prompt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# Caddy pide y renueva el certificado TLS solo, siempre que PUBLIC_HOST apunte
+# a este servidor. Con PUBLIC_HOST=localhost sirve por HTTP para pruebas.
+
+{$PUBLIC_HOST} {
+	encode zstd gzip
+
+	# Un audio de varias horas puede llegar a cientos de MB.
+	request_body {
+		max_size 500MB
+	}
+
+	reverse_proxy app:3001 {
+		# El progreso viaja por Server-Sent Events: sin desactivar el buffer,
+		# la barra avanzaria a saltos o se quedaria congelada.
+		flush_interval -1
+
+		# Subir un archivo grande por una conexion lenta puede tardar mucho;
+		# el valor por defecto cortaria la peticion a medias.
+		transport http {
+			read_timeout 1h
+			write_timeout 1h
+		}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MB
+			roll_keep 5
+		}
+	}
+}

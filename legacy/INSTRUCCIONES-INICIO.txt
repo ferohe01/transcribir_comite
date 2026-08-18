@@ -1,0 +1,93 @@
+================================================================================
+  CÓMO INICIAR LA APLICACIÓN - INSTRUCCIONES DE USO
+================================================================================
+
+OPCIÓN 1: INICIO SILENCIOSO (SIN VENTANA DE DOS) - RECOMENDADO
+----------------------------------------------------------------
+Haz doble clic en el archivo:
+   📄 start-hidden.vbs
+
+✅ Ventajas:
+   - No se muestra ninguna ventana de DOS/Consola
+   - Se abre automáticamente el navegador
+   - La aplicación corre en segundo plano
+   - Experiencia más limpia y profesional
+
+⚠️ NOTA: Si Windows SmartScreen bloquea el archivo VBS:
+   1. Haz clic derecho en "start-hidden.vbs"
+   2. Selecciona "Propiedades"
+   3. Marca la casilla "Desbloquear"
+   4. Haz clic en "Aplicar" y "Aceptar"
+
+
+OPCIÓN 2: INICIO CON VENTANA DE CONSOLA
+----------------------------------------
+Haz doble clic en el archivo:
+   📄 start-app.bat  o  convierte_audio_texto.exe
+
+⚠️ Inconveniente:
+   - Se mostrará una ventana de DOS/Consola negra
+   - Esta ventana DEBE permanecer abierta mientras usas la app
+   - NO la cierres o la aplicación dejará de funcionar
+
+
+CÓMO CERRAR LA APLICACIÓN
+--------------------------
+Si usaste start-hidden.vbs:
+   1. Abre el "Administrador de Tareas" (Ctrl + Shift + Esc)
+   2. Busca "convierte_audio_texto.exe" o "node.exe"
+   3. Haz clic derecho y selecciona "Finalizar tarea"
+
+Si usaste start-app.bat o el .exe:
+   1. Simplemente cierra la ventana de DOS/Consola
+   2. O presiona Ctrl + C en la consola
+
+
+¿QUÉ HACE LA APLICACIÓN?
+-------------------------
+1. Inicia un servidor web local en http://localhost:3001
+2. Abre automáticamente tu navegador predeterminado
+3. Carga la interfaz de la aplicación de transcripción
+4. Espera a que subas archivos de audio para transcribir
+
+
+REQUISITOS PREVIOS
+------------------
+✓ Tener configuradas las API Keys en el archivo .env
+✓ Conexión a Internet activa (para usar las APIs de IA)
+✓ Navegador web moderno (Chrome, Firefox, Edge, Safari)
+
+
+SOLUCIÓN DE PROBLEMAS
+----------------------
+▶ "El navegador no se abre automáticamente"
+   - Espera 2-3 segundos
+   - Si no se abre, abre manualmente: http://localhost:3001
+
+▶ "Error: puerto 3001 ya está en uso"
+   - Cierra todas las instancias previas de la aplicación
+   - Reinicia tu computadora si el problema persiste
+
+▶ "No puedo cerrar la aplicación"
+   - Usa el Administrador de Tareas de Windows
+   - Busca "convierte_audio_texto" o "node"
+   - Finaliza el proceso
+
+
+ARCHIVOS IMPORTANTES
+--------------------
+📄 start-hidden.vbs       ← USAR ESTE para inicio sin ventana
+📄 start-app.bat          ← Inicio tradicional con ventana
+📄 convierte_audio_texto.exe  ← Ejecutable principal
+📄 .env                   ← Configuración de API Keys
+📄 server.js              ← Servidor Node.js (no tocar)
+
+
+¿NECESITAS AYUDA?
+-----------------
+Consulta el archivo README.md para información técnica detallada
+
+
+================================================================================
+© 2025 - Transcriptor de Audio con IA
+================================================================================

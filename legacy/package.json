@@ -1,0 +1,59 @@
+{
+  "name": "audio-transcription-app",
+  "version": "1.0.0",
+  "description": "Aplicación de transcripción de audio con múltiples LLMs",
+  "main": "server.js",
+  "bin": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "install-deps": "npm install",
+    "build": "pkg server.js --target node18-win-x64 --output convierte_audio_texto.exe",
+    "build-with-icon": "pkg server.js --target node18-win-x64 --output convierte_audio_texto.exe && rcedit convierte_audio_texto.exe --set-icon icono.ico",
+    "add-icon": "rcedit convierte_audio_texto.exe --set-icon icono.ico",
+    "build-old": "pkg server.js --target node18-win-x64 --output transcriptor-audio-ai.exe"
+  },
+  "keywords": [
+    "audio",
+    "transcription",
+    "ai",
+    "openai",
+    "whisper",
+    "gemini",
+    "azure",
+    "aws"
+  ],
+  "author": "Tu Nombre",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "form-data": "^4.0.0",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "pkg": "^5.8.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "pkg": {
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist",
+    "assets": [
+      "index.html",
+      "index-embedded.html",
+      "styles.css",
+      "script.js",
+      "config.js",
+      ".env",
+      "uploads/**/*"
+    ]
+  }
+}

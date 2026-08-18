@@ -1,0 +1,25 @@
+# Secretos
+.env
+.env.*
+!.env.example
+*.backup
+
+# Dependencias
+node_modules/
+
+# Datos en tiempo de ejecucion (volumen Docker)
+data/
+samples/
+caddy_data/
+caddy_config/
+
+# Artefactos
+*.exe
+*.zip
+dist/
+coverage/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log

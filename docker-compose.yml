@@ -1,0 +1,74 @@
+# Servicio de transcripcion: app + worker + redis + caddy.
+#
+# El worker corre en su propio contenedor a proposito: una transcripcion con
+# seis fragmentos en paralelo consume CPU de forma sostenida, y separarla del
+# servidor web hace que la interfaz siga respondiendo al instante.
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    # No se publica ningun puerto al exterior: solo Caddy habla con la app.
+    expose:
+      - "3001"
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["node", "src/queue/worker.js"]
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Sube esto para procesar mas trabajos a la vez (cada replica necesita
+    # aproximadamente un nucleo por cada 2 trabajos simultaneos).
+    deploy:
+      replicas: 1
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Se define en .env: Caddy pide el certificado para este dominio.
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  data:
+  redis:
+  caddy_data:
+  caddy_config:

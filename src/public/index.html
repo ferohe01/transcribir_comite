@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transcripcion de audio con IA</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+</head>
+<body>
+
+<!-- Iconos en linea: la politica de seguridad de contenido no permite CDNs. -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3l5 5h-3v6h-4V8H7l5-5zM5 18h14v2H5z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></symbol>
+  <symbol id="i-robot" viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 1 1 1v1h3a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h3V3a1 1 0 0 1 1-1zM9 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-6 6h6v2H9z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 2h8l6 6v14H6zm7 1.5V9h5.5zM8 12h8v2H8zm0 4h8v2H8z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 16 7 11h3V4h4v7h3zM5 18h14v2H5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 10.4V6h-2v7.6l5 3 1-1.7z"/></symbol>
+  <symbol id="i-wand" viewBox="0 0 24 24"><path d="m7.5 5.6 1.4-1.4L11 6.3 9.6 7.7zM3 21l12.3-12.3 2.8 2.8L5.8 23.8zM19 3l.9 2.1L22 6l-2.1.9L19 9l-.9-2.1L16 6l2.1-.9z"/></symbol>
+</svg>
+
+<!-- ====================== Acceso ====================== -->
+<div class="login-wrap" id="loginView" hidden>
+  <div class="login-card">
+    <h1>Transcripcion de audio</h1>
+    <p class="sub">Inicia sesion para continuar.</p>
+    <div class="alert error" id="loginError" hidden></div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Correo</label>
+        <input type="email" id="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="password">Contrasena</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn block" type="submit" id="loginBtn">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<!-- ====================== Aplicacion ====================== -->
+<div class="app" id="appView" hidden>
+  <header class="topbar">
+    <svg class="icon" style="width:26px;height:26px"><use href="#i-mic"/></svg>
+    <h1>Transcripcion de audio</h1>
+    <div class="spacer"></div>
+    <span class="who" id="who"></span>
+    <button class="link-btn" id="logoutBtn">Salir</button>
+  </header>
+
+  <div class="layout">
+    <!-- ---------- Columna izquierda ---------- -->
+    <div>
+      <section class="card">
+        <h2><svg class="icon"><use href="#i-upload"/></svg> Nueva transcripcion</h2>
+
+        <div class="dropzone" id="dropzone">
+          <svg class="icon"><use href="#i-upload"/></svg>
+          <strong>Arrastra un audio o haz clic</strong>
+          <span>MP3, WAV, M4A, OGG, AAC, WMA, MP4… hasta 500 MB</span>
+        </div>
+        <input type="file" id="fileInput" accept="audio/*,video/*" hidden>
+
+        <div id="filePicked" hidden>
+          <div class="file-chip">
+            <svg class="icon" style="width:22px;height:22px;color:var(--brand)"><use href="#i-doc"/></svg>
+            <div class="meta">
+              <span class="name" id="fileName"></span>
+              <span class="size" id="fileSize"></span>
+            </div>
+            <button class="remove" id="removeFile" title="Quitar">
+              <svg class="icon"><use href="#i-close"/></svg>
+            </button>
+          </div>
+          <audio id="preview" controls></audio>
+        </div>
+
+        <div class="field" style="margin-top:16px">
+          <label for="asrModel"><svg class="icon"><use href="#i-robot"/></svg> Motor de transcripcion</label>
+          <select id="asrModel"></select>
+          <p class="hint" id="asrHint"></p>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="language">Idioma</label>
+            <select id="language">
+              <option value="">Detectar solo</option>
+              <option value="es">Espanol</option>
+              <option value="en">Ingles</option>
+              <option value="pt">Portugues</option>
+              <option value="fr">Frances</option>
+              <option value="de">Aleman</option>
+              <option value="it">Italiano</option>
+            </select>
+            <p class="hint">Indicarlo acelera y mejora el resultado.</p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="hint">Vocabulario (opcional)</label>
+          <textarea id="hint" rows="2" placeholder="Nombres propios, siglas o terminos tecnicos que aparecen en el audio"></textarea>
+          <p class="hint">Ayuda al modelo a escribir bien los nombres poco comunes.</p>
+        </div>
+
+        <button class="btn block" id="startBtn" disabled>
+          <svg class="icon"><use href="#i-mic"/></svg> Transcribir
+        </button>
+      </section>
+
+      <section class="card">
+        <h2><svg class="icon"><use href="#i-clock"/></svg> Historial</h2>
+        <div class="history" id="history"><p class="empty">Aun no hay transcripciones.</p></div>
+      </section>
+    </div>
+
+    <!-- ---------- Columna derecha ---------- -->
+    <div>
+      <section class="card" id="progressCard" hidden>
+        <div class="progress-box">
+          <div class="progress-head">
+            <span class="label" id="progressLabel">Preparando…</span>
+            <span class="pct" id="progressPct">0%</span>
+          </div>
+          <div class="bar"><div id="progressFill"></div></div>
+          <p class="progress-detail" id="progressDetail"></p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="result-head">
+          <h2><svg class="icon"><use href="#i-doc"/></svg> <span id="resultTitle">Resultado</span></h2>
+          <button class="btn ghost small" id="copyBtn" disabled>
+            <svg class="icon"><use href="#i-copy"/></svg> Copiar
+          </button>
+          <button class="btn ghost small" id="downloadBtn" disabled>
+            <svg class="icon"><use href="#i-download"/></svg> Descargar
+          </button>
+        </div>
+
+        <div class="stats" id="stats" hidden></div>
+        <div class="alert error" id="resultError" hidden></div>
+
+        <!--
+          Fase 2: la plantilla se aplica sobre la transcripcion ya guardada.
+          Cambiar de plantilla no vuelve a transcribir el audio.
+        -->
+        <div id="templateBar" hidden>
+          <div class="row">
+            <div class="field">
+              <label for="templateSelect"><svg class="icon"><use href="#i-wand"/></svg> Plantilla</label>
+              <select id="templateSelect"></select>
+            </div>
+            <div class="field">
+              <label for="llmModel">Modelo</label>
+              <select id="llmModel"></select>
+            </div>
+          </div>
+          <div class="field" id="customPromptField" hidden>
+            <label for="customPrompt">Instrucciones</label>
+            <textarea id="customPrompt" rows="4" placeholder="Describe que quieres obtener de la transcripcion"></textarea>
+          </div>
+          <div class="row" style="margin-bottom:16px">
+            <button class="btn" id="applyBtn">
+              <svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla
+            </button>
+            <button class="btn ghost" id="saveTemplateBtn" hidden>Guardar como plantilla</button>
+          </div>
+          <p class="hint" id="templateDesc" style="margin:-8px 0 14px"></p>
+        </div>
+
+        <div class="output" id="output">El resultado aparecera aqui.</div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
