@@ -248,9 +248,30 @@ En `.env`:
 
 | Variable | Por defecto | Que hace |
 |---|---|---|
-| `TRANSCRIBE_CONCURRENCY` | 4 | Fragmentos que se transcriben a la vez. Subirlo acelera cada trabajo hasta que el proveedor empieza a devolver 429. |
+| `TRANSCRIBE_CONCURRENCY` | 4 | Fragmentos que se transcriben a la vez. El valor por defecto es prudente para planes gratuitos. **Con un plan de pago, ponlo en 8.** |
 | `WORKER_CONCURRENCY` | 2 | Trabajos simultaneos. La compresion usa todos los nucleos disponibles por trabajo, asi que subirlo en una maquina pequena no compensa. |
-| `CHUNK_TARGET_SECONDS` | 600 | Duracion de cada fragmento. Bajarlo aumenta el paralelismo; subirlo da mas contexto al modelo. |
+| `CHUNK_TARGET_SECONDS` | 600 | Duracion de cada fragmento. Dejalo como esta: ver la medicion de abajo. |
+
+### Que gana cada ajuste, medido
+
+Sobre la grabacion de 1 h 00 min con Groq y limites de plan de pago:
+
+| Configuracion | Total | Preparar | Transcribir |
+|---|---|---|---|
+| 600 s / concurrencia 4 | 9,3 s | 5,8 s | 2,6 s |
+| **600 s / concurrencia 8** | **8,6 s** | 5,8 s | 1,8 s |
+| 300 s / concurrencia 12 | 7,9 s | 5,8 s | 1,2 s |
+| 180 s / concurrencia 12 | 9,2 s | 6,2 s | 2,1 s |
+
+Subir la concurrencia a 8 es gratis y ahorra ~1 s. Acortar los fragmentos a
+300 s ahorra otros 0,7 s, pero no compensa: da mas cortes donde se puede
+perder contexto, y el margen es ruido. Por debajo de 300 s empeora, porque el
+coste de arrancar un proceso de ffmpeg por fragmento se come la ganancia.
+
+El tiempo esta dominado por la preparacion (5,8 s), que apenas se mueve: son
+2,4 s de detectar pausas mas 3,5 s de comprimir repartidos entre los nucleos.
+Ahi es donde habria que mirar si algun dia hicieran falta menos de 8 segundos
+por hora de audio.
 
 Para mas capacidad, escala el worker en vez de tocar la app:
 
