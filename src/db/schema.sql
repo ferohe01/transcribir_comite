@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS jobs (
   -- Fragmentos que atendio el modelo de respaldo y por que. Se muestra en la
   -- interfaz: usar otro modelo cambia el precio y la calidad.
   fell_back      TEXT,
+  -- Si el texto se reutilizo de una transcripcion anterior. Sin esto la
+  -- interfaz presentaba un acierto de cache como si fuera una transcripcion
+  -- instantanea de cero fragmentos.
+  from_cache     INTEGER NOT NULL DEFAULT 0,
   created_at     TEXT NOT NULL DEFAULT (datetime('now')),
   finished_at    TEXT
 );

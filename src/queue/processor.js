@@ -82,6 +82,7 @@ export async function processJob({ jobId, inputPath, asrModelId, language, hint 
       elapsedMs: result.elapsedMs,
       chunkCount: result.chunkCount,
       fellBack: result.fellBack,
+      fromCache: result.fromCache,
     });
 
     const seconds = result.elapsedMs / 1000;

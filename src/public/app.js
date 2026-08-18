@@ -406,23 +406,33 @@ function renderStats(job, transcript) {
   // Si algun fragmento lo atendio otro modelo, hay que decirlo: cambia el
   // precio y puede cambiar la calidad.
   const fellBack = job.fell_back ? JSON.parse(job.fell_back) : [];
+  const cached = Boolean(job.from_cache);
+
   if (fellBack.length > 0) {
     const motivo = MOTIVO_RESPALDO[fellBack[0].reason] ?? 'el motor principal fallo';
     $('resultNote').textContent =
       `${fellBack.length} de ${job.chunk_count} fragmentos se transcribieron con ` +
       `${fellBack[0].usedModel} porque ${motivo}.`;
     $('resultNote').hidden = false;
+  } else if (cached) {
+    $('resultNote').textContent =
+      'Este audio ya se habia transcrito con el mismo motor, idioma y vocabulario, ' +
+      'asi que se reutilizo el texto guardado: no se volvio a transcribir ni a pagar.';
+    $('resultNote').hidden = false;
   } else {
     $('resultNote').hidden = true;
   }
 
+  // Un acierto de cache no es una transcripcion instantanea: no hubo
+  // fragmentos que contar ni velocidad que medir. Presentarlo como "0,5 s a
+  // 9710x tiempo real con 0 fragmentos" parecia un fallo del pipeline.
   const cells = [
     ['Duracion', formatDuration(job.duration_s)],
-    ['Proceso', job.elapsed_ms ? `${(job.elapsed_ms / 1000).toFixed(1)} s` : 'cache'],
-    ['Velocidad', speed ? `${speed.toFixed(0)}x tiempo real` : '—'],
-    ['Fragmentos', job.chunk_count ?? '—'],
+    ['Proceso', cached ? 'Reutilizada' : job.elapsed_ms ? `${(job.elapsed_ms / 1000).toFixed(1)} s` : '—'],
+    ['Velocidad', cached || !speed ? '—' : `${speed.toFixed(0)}x tiempo real`],
+    ['Fragmentos', cached ? '—' : job.chunk_count ?? '—'],
     ['Palabras', words.toLocaleString('es')],
-    ['Coste', job.cost_estimate != null ? `$${job.cost_estimate.toFixed(4)}` : '—'],
+    ['Coste', cached ? 'Sin coste' : job.cost_estimate != null ? `$${job.cost_estimate.toFixed(4)}` : '—'],
   ];
 
   $('stats').innerHTML = '';

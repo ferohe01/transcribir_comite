@@ -54,6 +54,12 @@ function migrate(database) {
     database.exec('ALTER TABLE jobs ADD COLUMN fell_back TEXT');
   }
 
+  if (existeTabla('jobs') && !columnas('jobs').includes('from_cache')) {
+    // Los trabajos anteriores se quedan en 0: no se registro si reutilizaron
+    // texto, y suponerlo seria inventar el dato.
+    database.exec('ALTER TABLE jobs ADD COLUMN from_cache INTEGER NOT NULL DEFAULT 0');
+  }
+
   if (existeTabla('transcripts') && !columnas('transcripts').includes('cache_key')) {
     // Las transcripciones anteriores se quedan sin clave y por tanto fuera de
     // la cache. Es lo correcto: se hicieron sin registrar con que idioma ni
@@ -117,13 +123,13 @@ export const jobs = {
       .run(status ?? null, stage ?? null, progress ?? null, detail ?? null, id);
   },
 
-  finish(id, { durationSeconds, costEstimate, elapsedMs, chunkCount, fellBack }) {
+  finish(id, { durationSeconds, costEstimate, elapsedMs, chunkCount, fellBack, fromCache }) {
     getDb()
       .prepare(
         `UPDATE jobs
             SET status = 'done', progress = 100, stage = 'done', error = NULL,
                 duration_s = ?, cost_estimate = ?, elapsed_ms = ?, chunk_count = ?,
-                fell_back = ?, finished_at = datetime('now')
+                fell_back = ?, from_cache = ?, finished_at = datetime('now')
           WHERE id = ?`,
       )
       .run(
@@ -132,6 +138,7 @@ export const jobs = {
         elapsedMs,
         chunkCount,
         fellBack?.length ? JSON.stringify(fellBack) : null,
+        fromCache ? 1 : 0,
         id,
       );
   },

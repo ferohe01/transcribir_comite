@@ -25,7 +25,7 @@ config.paths.work = path.join(sandbox, 'work');
 fs.mkdirSync(config.paths.uploads, { recursive: true });
 
 const { createApp } = await import('../src/app.js');
-const { users, getDb, closeDb } = await import('../src/db/index.js');
+const { users, jobs, getDb, closeDb } = await import('../src/db/index.js');
 const { hashPassword } = await import('../src/auth/password.js');
 
 let server;
@@ -320,4 +320,32 @@ test('la cache solo reutiliza una transcripcion con la misma clave', async () =>
   assert.equal(transcripts.findCached('clave-a')?.text, 'hola');
   assert.equal(transcripts.findCached('clave-b'), undefined, 'otra clave no reutiliza nada');
   assert.equal(transcripts.findCached(null), undefined, 'sin clave no reutiliza nada');
+});
+
+test('un trabajo servido desde la cache queda marcado como tal', async () => {
+  // La interfaz necesita distinguirlo: un acierto de cache no tiene
+  // fragmentos ni velocidad, y presentarlo como una transcripcion de 0,5 s
+  // con cero fragmentos parecia un fallo del pipeline.
+  jobs.create({
+    id: 'trabajo-de-cache',
+    userId: 1,
+    filename: 'reunion.mp3',
+    sizeBytes: 1024,
+    asrModel: 'groq-whisper-turbo',
+    language: 'es',
+    hint: null,
+  });
+
+  jobs.finish('trabajo-de-cache', {
+    durationSeconds: 4417,
+    costEstimate: 0,
+    elapsedMs: 455,
+    chunkCount: 0,
+    fellBack: [],
+    fromCache: true,
+  });
+
+  const { job } = await (await agent('/api/jobs/trabajo-de-cache')).json();
+  assert.equal(job.from_cache, 1);
+  assert.equal(job.chunk_count, 0);
 });
