@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fetchWithRetry, ApiError } from '../src/engines/http.js';
-import { createOpenAiCompatibleEngine } from '../src/engines/openai-compatible.js';
+import { createOpenAiCompatibleEngine, createOpenAiCompatibleChat } from '../src/engines/openai-compatible.js';
 
 /** Sustituye globalThis.fetch por una funcion controlada y la restaura al salir. */
 function withFakeFetch(handler, run) {
@@ -273,4 +273,96 @@ test('el motor respeta el presupuesto de espera que le pasan', async () => {
   });
 
   await fs.rm(file, { force: true });
+});
+
+// --- Chat de plantillas ---------------------------------------------------
+
+/** Respuesta SSE de chat como la que devuelven OpenAI y Groq. */
+const sseResponse = (chunks) =>
+  new Response(
+    new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+        }
+        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    }),
+    { status: 200, headers: { 'content-type': 'text/event-stream' } },
+  );
+
+const collect = async (stream) => {
+  let out = '';
+  for await (const delta of stream) out += delta;
+  return out;
+};
+
+const deltaChunk = (text, finish = null) => ({
+  choices: [{ delta: text === null ? {} : { content: text }, finish_reason: finish }],
+});
+
+test('los modelos con temperatura fija no la reciben', async () => {
+  process.env.TEST_KEY = 'k';
+  const chat = createOpenAiCompatibleChat({ baseUrl: 'https://api.test/v1', providerName: 'Test' });
+
+  await withFakeFetch(
+    () => sseResponse([deltaChunk('hola'), deltaChunk(null, 'stop')]),
+    async (calls) => {
+      const flexible = { model: 'm', envKey: 'TEST_KEY' };
+      assert.equal(await collect(chat({ entry: flexible, system: 's', user: 'u' })), 'hola');
+      assert.equal(JSON.parse(calls[0].options.body).temperature, 0.1);
+    },
+  );
+
+  await withFakeFetch(
+    () => sseResponse([deltaChunk('hola'), deltaChunk(null, 'stop')]),
+    async (calls) => {
+      // La familia GPT-5 responde 400 si se le manda cualquier temperatura.
+      const fixed = { model: 'gpt-5.5', envKey: 'TEST_KEY', fixedTemperature: true };
+      await collect(chat({ entry: fixed, system: 's', user: 'u' }));
+      assert.ok(!('temperature' in JSON.parse(calls[0].options.body)));
+    },
+  );
+});
+
+test('el presupuesto de salida viaja en la peticion', async () => {
+  process.env.TEST_KEY = 'k';
+  const chat = createOpenAiCompatibleChat({ baseUrl: 'https://api.test/v1', providerName: 'Test' });
+
+  await withFakeFetch(
+    () => sseResponse([deltaChunk('texto'), deltaChunk(null, 'stop')]),
+    async (calls) => {
+      const entry = { model: 'm', envKey: 'TEST_KEY', maxOutputTokens: 32768 };
+      await collect(chat({ entry, system: 's', user: 'u' }));
+      assert.equal(JSON.parse(calls[0].options.body).max_completion_tokens, 32768);
+    },
+  );
+});
+
+test('una respuesta sin texto es un error, no un resultado vacio', async () => {
+  process.env.TEST_KEY = 'k';
+  const chat = createOpenAiCompatibleChat({ baseUrl: 'https://api.test/v1', providerName: 'Test' });
+
+  // Caso real: el modelo gasta todo su presupuesto razonando y termina con
+  // finish_reason 'length' sin haber escrito ni un caracter.
+  await withFakeFetch(
+    () => sseResponse([deltaChunk(null, 'length')]),
+    async () => {
+      await assert.rejects(
+        collect(chat({ entry: { model: 'm', envKey: 'TEST_KEY' }, system: 's', user: 'u' })),
+        /limite de salida/,
+      );
+    },
+  );
+
+  await withFakeFetch(
+    () => sseResponse([deltaChunk(null, 'stop')]),
+    async () => {
+      await assert.rejects(
+        collect(chat({ entry: { model: 'm', envKey: 'TEST_KEY' }, system: 's', user: 'u' })),
+        /no devolvio texto/,
+      );
+    },
+  );
 });

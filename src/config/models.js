@@ -131,29 +131,39 @@ export const LLM_MODELS = {
     model: 'gemini-3.1-pro-preview',
     envKey: 'GEMINI_API_KEY',
   },
+  // La familia GPT-5 solo acepta la temperatura por defecto: enviarle un 0.1
+  // no baja la creatividad, devuelve un 400 y tumba la peticion entera.
   'openai-gpt5': {
     label: 'OpenAI · GPT-5.5',
     engine: 'openai',
     model: 'gpt-5.5',
     envKey: 'OPENAI_API_KEY',
+    fixedTemperature: true,
   },
   'openai-gpt5-mini': {
     label: 'OpenAI · GPT-5 mini',
     engine: 'openai',
     model: 'gpt-5-mini',
     envKey: 'OPENAI_API_KEY',
+    fixedTemperature: true,
   },
+  // Los GPT-OSS razonan antes de responder y ese razonamiento gasta el mismo
+  // presupuesto de salida. Con el limite por defecto (3072 tokens) se lo
+  // gastaban entero pensando y devolvian texto vacio con finish_reason
+  // 'length' sobre una transcripcion de una hora, asi que se les da margen.
   'groq-gpt-oss-120b': {
     label: 'Groq · GPT-OSS 120B',
     engine: 'groq',
     model: 'openai/gpt-oss-120b',
     envKey: 'GROQ_API_KEY',
+    maxOutputTokens: 32768,
   },
   'groq-gpt-oss-20b': {
     label: 'Groq · GPT-OSS 20B',
     engine: 'groq',
     model: 'openai/gpt-oss-20b',
     envKey: 'GROQ_API_KEY',
+    maxOutputTokens: 32768,
   },
 };
 

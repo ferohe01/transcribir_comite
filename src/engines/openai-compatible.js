@@ -82,6 +82,15 @@ export function createOpenAiCompatibleChat({ baseUrl, providerName }) {
             { role: 'system', content: system },
             { role: 'user', content: user },
           ],
+          // Las plantillas piden texto fiel a la transcripcion (la de
+          // evaluacion exige los comentarios literales), asi que se baja la
+          // temperatura igual que en Gemini y que en la version anterior.
+          // Los modelos que solo admiten su valor por defecto se quedan sin
+          // el parametro: mandarselo es un 400, no una respuesta mas creativa.
+          ...(entry.fixedTemperature ? {} : { temperature: 0.1 }),
+          // Una plantilla sobre una transcripcion de una hora produce miles de
+          // tokens: sin margen explicito el modelo se corta a media respuesta.
+          ...(entry.maxOutputTokens ? { max_completion_tokens: entry.maxOutputTokens } : {}),
           stream: true,
         }),
       },
@@ -91,6 +100,9 @@ export function createOpenAiCompatibleChat({ baseUrl, providerName }) {
     // Los eventos SSE pueden partirse entre paquetes TCP, asi que se acumula
     // en un buffer y solo se procesan las lineas completas.
     let buffer = '';
+    let emitted = 0;
+    let finishReason = null;
+
     for await (const bytes of response.body) {
       buffer += new TextDecoder().decode(bytes, { stream: true });
       const lines = buffer.split('\n');
@@ -101,12 +113,30 @@ export function createOpenAiCompatibleChat({ baseUrl, providerName }) {
         const data = line.slice(5).trim();
         if (!data || data === '[DONE]') continue;
         try {
-          const delta = JSON.parse(data).choices?.[0]?.delta?.content;
-          if (delta) yield delta;
+          const choice = JSON.parse(data).choices?.[0];
+          finishReason = choice?.finish_reason ?? finishReason;
+          const delta = choice?.delta?.content;
+          if (delta) {
+            emitted += delta.length;
+            yield delta;
+          }
         } catch {
           // Fragmento incompleto: se ignora, llegara entero en el siguiente.
         }
       }
+    }
+
+    // Una respuesta vacia con HTTP 200 es un fallo real: normalmente el
+    // modelo agoto su limite de salida razonando y no llego a escribir nada.
+    // Sin esto la pantalla mostraba un resultado en blanco junto al aviso de
+    // "Plantilla aplicada".
+    if (emitted === 0) {
+      throw new Error(
+        finishReason === 'length'
+          ? `${providerName}: el modelo agoto su limite de salida antes de escribir la respuesta. ` +
+            'Prueba con otro modelo o con una transcripcion mas corta.'
+          : `${providerName}: el modelo no devolvio texto.`,
+      );
     }
   };
 }
