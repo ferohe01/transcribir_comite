@@ -42,12 +42,13 @@ CREATE TABLE IF NOT EXISTS transcripts (
   language      TEXT,
   audio_sha256  TEXT,
   asr_model     TEXT NOT NULL,
+  -- Huella de todo lo que influye en el resultado: audio, modelo, idioma y
+  -- vocabulario. Si cualquiera cambia, hay que transcribir de nuevo.
+  cache_key     TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- La cache de transcripciones se apoya en este indice: mismo audio + mismo
--- modelo = se reutiliza el resultado en lugar de volver a pagar por el.
-CREATE INDEX IF NOT EXISTS idx_transcripts_cache ON transcripts(audio_sha256, asr_model);
+CREATE INDEX IF NOT EXISTS idx_transcripts_cache ON transcripts(cache_key);
 
 -- Tabla aparte para poder tener varios post-procesos sobre una misma
 -- transcripcion (acta, resumen, evaluacion...) sin retranscribir.

@@ -274,3 +274,45 @@ test('un modelo sin clave configurada se rechaza con un mensaje claro', async ()
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /OPENAI_API_KEY/);
 });
+
+// --- Cache de transcripciones ---------------------------------------------
+
+test('la clave de cache distingue idioma, vocabulario y modelo', async () => {
+  const { cacheKeyFor } = await import('../src/queue/processor.js');
+  const base = { audioSha256: 'abc', asrModelId: 'groq-whisper-turbo', language: null, hint: null };
+
+  const sinIdioma = cacheKeyFor(base);
+
+  assert.equal(cacheKeyFor(base), sinIdioma, 'la misma entrada da siempre la misma clave');
+  assert.notEqual(cacheKeyFor({ ...base, language: 'es' }), sinIdioma, 'el idioma cuenta');
+  assert.notEqual(cacheKeyFor({ ...base, hint: 'PIEC' }), sinIdioma, 'el vocabulario cuenta');
+  assert.notEqual(cacheKeyFor({ ...base, asrModelId: 'gemini-flash' }), sinIdioma, 'el modelo cuenta');
+  assert.notEqual(cacheKeyFor({ ...base, audioSha256: 'xyz' }), sinIdioma, 'el audio cuenta');
+});
+
+test('la cache solo reutiliza una transcripcion con la misma clave', async () => {
+  const { transcripts, getDb } = await import('../src/db/index.js');
+
+  getDb()
+    .prepare(
+      `INSERT INTO jobs (id, user_id, filename, asr_model, status)
+       VALUES ('trabajo-cache', (SELECT id FROM users WHERE email = 'prueba@ejemplo.com'),
+               'a.mp3', 'groq-whisper-turbo', 'done')`,
+    )
+    .run();
+
+  transcripts.create({
+    jobId: 'trabajo-cache',
+    text: 'hola',
+    formatted: 'hola',
+    segmentsJson: '[]',
+    language: 'es',
+    audioSha256: 'sha-de-prueba',
+    asrModel: 'groq-whisper-turbo',
+    cacheKey: 'clave-a',
+  });
+
+  assert.equal(transcripts.findCached('clave-a')?.text, 'hola');
+  assert.equal(transcripts.findCached('clave-b'), undefined, 'otra clave no reutiliza nada');
+  assert.equal(transcripts.findCached(null), undefined, 'sin clave no reutiliza nada');
+});

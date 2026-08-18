@@ -21,10 +21,41 @@ export function getDb() {
   // fichero; sin esto un bloqueo momentaneo aborta la escritura.
   db.pragma('busy_timeout = 5000');
 
+  // Las migraciones van ANTES del esquema: este crea indices sobre columnas
+  // nuevas, y en una base de datos que ya existia esas columnas todavia no
+  // estan. Al reves fallaba con "no such column".
+  migrate(db);
+
   const schema = fs.readFileSync(path.join(ROOT, 'src', 'db', 'schema.sql'), 'utf8');
   db.exec(schema);
 
   return db;
+}
+
+/**
+ * Cambios de esquema sobre bases de datos que ya existen. `CREATE TABLE IF NOT
+ * EXISTS` no anade columnas nuevas a una tabla ya creada, asi que las
+ * incorporaciones van aqui. Cada paso comprueba antes si hace falta, de modo
+ * que ejecutarlo en cada arranque es inofensivo.
+ */
+function migrate(database) {
+  const existeTabla = (tabla) =>
+    Boolean(
+      database
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(tabla),
+    );
+  const columnas = (tabla) =>
+    database.prepare(`PRAGMA table_info(${tabla})`).all().map((c) => c.name);
+
+  // En una base de datos nueva no hay nada que migrar: el esquema, que se
+  // aplica justo despues, ya la crea completa.
+  if (existeTabla('transcripts') && !columnas('transcripts').includes('cache_key')) {
+    // Las transcripciones anteriores se quedan sin clave y por tanto fuera de
+    // la cache. Es lo correcto: se hicieron sin registrar con que idioma ni
+    // con que vocabulario, asi que no se puede saber si servirian.
+    database.exec('ALTER TABLE transcripts ADD COLUMN cache_key TEXT');
+  }
 }
 
 /** Cierra la conexion. Necesario en las pruebas: en Windows el fichero queda
@@ -150,8 +181,10 @@ export const transcripts = {
   create(row) {
     const id = getDb()
       .prepare(
-        `INSERT INTO transcripts (job_id, text, formatted, segments_json, language, audio_sha256, asr_model)
-         VALUES (@jobId, @text, @formatted, @segmentsJson, @language, @audioSha256, @asrModel)`,
+        `INSERT INTO transcripts
+           (job_id, text, formatted, segments_json, language, audio_sha256, asr_model, cache_key)
+         VALUES
+           (@jobId, @text, @formatted, @segmentsJson, @language, @audioSha256, @asrModel, @cacheKey)`,
       )
       .run(row).lastInsertRowid;
     return id;
@@ -165,15 +198,20 @@ export const transcripts = {
     return getDb().prepare('SELECT * FROM transcripts WHERE id = ?').get(id);
   },
 
-  /** Busca una transcripcion previa del mismo audio con el mismo modelo. */
-  findCached(audioSha256, asrModel) {
+  /**
+   * Busca una transcripcion previa equivalente.
+   *
+   * La clave cubre audio, modelo, idioma y vocabulario. Antes solo miraba
+   * audio y modelo, con lo que cambiar el idioma y volver a subir el mismo
+   * archivo devolvia el resultado viejo y el cambio no surtia efecto.
+   */
+  findCached(cacheKey) {
+    if (!cacheKey) return undefined;
     return getDb()
       .prepare(
-        `SELECT * FROM transcripts
-          WHERE audio_sha256 = ? AND asr_model = ?
-          ORDER BY created_at DESC LIMIT 1`,
+        'SELECT * FROM transcripts WHERE cache_key = ? ORDER BY created_at DESC LIMIT 1',
       )
-      .get(audioSha256, asrModel);
+      .get(cacheKey);
   },
 };
 
