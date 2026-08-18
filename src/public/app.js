@@ -29,19 +29,25 @@ const state = {
 // --- Utilidades ------------------------------------------------------------
 
 async function api(path, options = {}) {
+  // `expectAuthError` lo usa el formulario de acceso: ahi un 401 significa
+  // "credenciales incorrectas", no "tu sesion ha caducado", y el mensaje del
+  // servidor es mas util que el generico.
+  const { expectAuthError = false, ...fetchOptions } = options;
+
   const response = await fetch(path, {
     credentials: 'same-origin',
-    ...options,
-    headers: options.body instanceof FormData
-      ? options.headers
-      : { 'Content-Type': 'application/json', ...options.headers },
+    ...fetchOptions,
+    headers: fetchOptions.body instanceof FormData
+      ? fetchOptions.headers
+      : { 'Content-Type': 'application/json', ...fetchOptions.headers },
   });
 
-  if (response.status === 401) {
-    showLogin();
-    throw new Error('Sesion caducada.');
-  }
   const data = await response.json().catch(() => ({}));
+
+  if (response.status === 401 && !expectAuthError) {
+    showLogin();
+    throw new Error(data.error || 'Tu sesion ha caducado. Vuelve a entrar.');
+  }
   if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
   return data;
 }
@@ -103,6 +109,7 @@ $('loginForm').addEventListener('submit', async (event) => {
   try {
     const { user } = await api('/api/auth/login', {
       method: 'POST',
+      expectAuthError: true,
       body: JSON.stringify({ email: $('email').value, password: $('password').value }),
     });
     $('password').value = '';
