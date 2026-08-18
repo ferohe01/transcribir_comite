@@ -9,6 +9,7 @@ import { jobs, transcripts } from '../db/index.js';
 import { getAsrModel } from '../config/models.js';
 import { probe } from '../audio/probe.js';
 import { enqueue, usesRedis } from '../queue/index.js';
+import { decodeUploadFilename, safeDisplayName } from './filename.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ const storage = multer.diskStorage({
     // El nombre original solo se guarda en la base de datos; en disco se usa
     // un identificador aleatorio para que un nombre malicioso no pueda
     // escaparse del directorio de subidas.
-    const ext = path.extname(file.originalname).slice(0, 10).replace(/[^\w.]/g, '');
+    const ext = path.extname(decodeUploadFilename(file.originalname)).slice(0, 10).replace(/[^\w.]/g, '');
     cb(null, `${crypto.randomUUID()}${ext}`);
   },
 });
@@ -76,7 +77,7 @@ router.post('/', uploadLimiter, upload.single('audio'), async (req, res) => {
     jobs.create({
       id: jobId,
       userId: req.user.id,
-      filename: req.file.originalname,
+      filename: safeDisplayName(req.file.originalname),
       sizeBytes: req.file.size,
       asrModel: asrModelId,
       language: req.body.language?.trim() || null,

@@ -199,3 +199,36 @@ test('sin duracion conocida las marcas no se tocan', () => {
   ]);
   assert.equal(merged.segments[0].end, 9999);
 });
+
+// --- Nombres de archivo subidos -------------------------------------------
+
+test('recupera un nombre con acentos leido como latin1', async () => {
+  const { decodeUploadFilename } = await import('../src/routes/filename.js');
+
+  // Es lo que llega de verdad: el navegador manda UTF-8 y busboy lo lee como
+  // latin1, asi que cada acento se convierte en dos caracteres.
+  const comoLlega = Buffer.from('Grabación de la reunión.mp3', 'utf8').toString('latin1');
+  assert.equal(decodeUploadFilename(comoLlega), 'Grabación de la reunión.mp3');
+});
+
+test('no toca un nombre que ya venia bien', async () => {
+  const { decodeUploadFilename } = await import('../src/routes/filename.js');
+
+  assert.equal(decodeUploadFilename('reunion.mp3'), 'reunion.mp3');
+  // Bytes que no forman UTF-8 valido: reinterpretarlos lo estropearia.
+  assert.equal(decodeUploadFilename('caf\u00e9.mp3'), 'café.mp3');
+});
+
+test('el nombre visible no puede escaparse a otra ruta', async () => {
+  const { safeDisplayName } = await import('../src/routes/filename.js');
+
+  const barra = String.fromCharCode(92); // evita escapar barras en el literal
+
+  assert.ok(!safeDisplayName('../../etc/passwd.mp3').includes('/'));
+  assert.ok(
+    !safeDisplayName(`..${barra}..${barra}windows${barra}system32.mp3`).includes(barra),
+  );
+  assert.equal(safeDisplayName('audio\u0000oculto.mp3'), 'audiooculto.mp3');
+  assert.equal(safeDisplayName('   '), 'audio', 'nunca queda vacio');
+  assert.ok(safeDisplayName('x'.repeat(400)).length <= 255);
+});
