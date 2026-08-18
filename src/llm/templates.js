@@ -8,6 +8,18 @@
  * que haga falta y sin volver a transcribir.
  */
 
+/**
+ * Plantilla que aparece preseleccionada al abrir una transcripcion.
+ *
+ * En la version anterior este prompt se aplicaba siempre y de forma
+ * automatica, asi que el uso habitual -- ordenar la evaluacion por proyectos
+ * -- no requeria elegir nada. Al convertirlo en una plantilla mas quedaba
+ * detras de "Transcripcion literal" y no llegaba a ejecutarse nunca. Se
+ * preselecciona para recuperar ese uso sin renunciar a poder cambiar de
+ * plantilla sin volver a transcribir.
+ */
+export const DEFAULT_TEMPLATE = 'evaluacion-proyectos';
+
 export const SYSTEM_PROMPT =
   'Eres un asistente especializado en procesar transcripciones de audio y extraer ' +
   'informacion estructurada segun las instrucciones proporcionadas. Trabajas unicamente ' +

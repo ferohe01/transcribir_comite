@@ -1,6 +1,6 @@
 import express from 'express';
 import { availableModels } from '../config/models.js';
-import { listTemplates } from '../llm/templates.js';
+import { listTemplates, DEFAULT_TEMPLATE } from '../llm/templates.js';
 import { userTemplates } from '../db/index.js';
 import { checkFfmpeg } from '../audio/ffmpeg.js';
 import { queueHealth } from '../queue/index.js';
@@ -15,6 +15,7 @@ router.get('/models', (req, res) => {
 
 router.get('/templates', (req, res) => {
   res.json({
+    default: DEFAULT_TEMPLATE,
     builtin: listTemplates(),
     custom: userTemplates.listForUser(req.user.id).map((t) => ({
       id: `user:${t.id}`,

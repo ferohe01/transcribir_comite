@@ -171,6 +171,11 @@ async function loadTemplates() {
   for (const template of state.templates.builtin) select.add(new Option(template.name, template.id));
   for (const template of state.templates.custom) select.add(new Option(`${template.name} (propia)`, template.id));
   select.add(new Option('Instrucciones personalizadas…', '__custom__'));
+
+  // El desplegable arranca en la plantilla que indica el servidor, no en la
+  // primera de la lista: dejarlo en "Transcripcion literal" hacia que el
+  // prompt habitual no se ejecutase nunca salvo que se buscara a mano.
+  select.value = state.templates.default ?? select.value;
   onTemplateChange();
 }
 

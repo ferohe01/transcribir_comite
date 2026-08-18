@@ -166,7 +166,12 @@ test('el catalogo nunca expone las claves de API', async () => {
 
 test('las plantillas integradas incluyen la de evaluacion de proyectos', async () => {
   const request = agent;
-  const { builtin, custom } = await (await request('/api/templates')).json();
+  const { builtin, custom, default: preselected } = await (await request('/api/templates')).json();
+
+  // El desplegable del cliente arranca en esta plantilla: es el caso de uso
+  // que la version anterior aplicaba de forma automatica.
+  assert.equal(preselected, 'evaluacion-proyectos');
+  assert.ok(builtin.some((t) => t.id === preselected), 'la preseleccionada debe existir');
 
   const ids = builtin.map((t) => t.id);
   assert.ok(ids.includes('evaluacion-proyectos'), 'se conserva el caso de uso original');
