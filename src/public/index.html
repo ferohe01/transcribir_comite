@@ -87,12 +87,19 @@
       <section class="card">
         <h2><svg class="icon"><use href="#i-upload"/></svg> Nueva transcripcion</h2>
 
-        <div class="dropzone" id="dropzone">
+        <!--
+          El control real es el input, y va DENTRO de la etiqueta: asi la zona
+          entera es operable con el raton, se alcanza con el tabulador y se
+          abre con Enter. Estaba como un div con onclick y un input `hidden`,
+          que al ser display:none queda fuera del orden de foco: no habia
+          ninguna forma de elegir un archivo con el teclado.
+        -->
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept="audio/*,video/*" class="sr-only">
           <svg class="icon"><use href="#i-upload"/></svg>
           <strong>Arrastra un audio o haz clic</strong>
           <span>MP3, WAV, M4A, OGG, AAC, WMA, MP4… hasta 500 MB</span>
-        </div>
-        <input type="file" id="fileInput" accept="audio/*,video/*" hidden>
+        </label>
 
         <div id="filePicked" hidden>
           <div class="file-chip">
@@ -202,6 +209,15 @@
           </div>
           <p class="hint" id="templateDesc" style="margin:-8px 0 14px"></p>
         </div>
+
+        <!--
+          Los resultados de plantilla que ya existen para esta transcripcion.
+          El servidor los guarda todos en la tabla `outputs`; antes el cliente
+          no los pedia nunca, asi que aplicar una segunda plantilla borraba de
+          la pantalla un acta que habia costado dinero y no habia forma de
+          recuperarla.
+        -->
+        <div class="results" id="results" hidden></div>
 
         <div class="output" id="output">El resultado aparecera aqui.</div>
       </section>

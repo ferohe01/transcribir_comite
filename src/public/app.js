@@ -23,6 +23,7 @@ const state = {
   currentJobId: null,
   signupEnabled: null,   // null = aun no se ha preguntado al servidor
   transcript: null,   // { id, text, formatted }
+  outputs: [],        // resultados de plantilla ya guardados para esa transcripcion
   displayed: '',      // texto que se ve en pantalla ahora mismo
   eventSource: null,
 };
@@ -282,7 +283,9 @@ function pickFile(file) {
   $('startBtn').disabled = false;
 }
 
-$('dropzone').addEventListener('click', () => $('fileInput').click());
+// La zona de subida es una <label> con el input dentro, asi que el clic y la
+// tecla Enter los gestiona el navegador. Reenviarlo a mano desde aqui abriria
+// el dialogo dos veces.
 $('fileInput').addEventListener('change', (event) => {
   if (event.target.files[0]) pickFile(event.target.files[0]);
 });
@@ -440,6 +443,10 @@ async function openJob(jobId) {
   selectJob(jobId);
   $('resultError').hidden = true;
   $('resultNote').hidden = true;
+  // Los resultados son de la transcripcion anterior: fuera hasta saber que
+  // tiene esta.
+  state.outputs = [];
+  renderOutputs();
 
   const { job, transcript } = await api(`/api/jobs/${jobId}`);
   $('resultTitle').textContent = job.filename;
@@ -464,6 +471,7 @@ async function openJob(jobId) {
   setOutput(transcript?.formatted || transcript?.text || '');
   $('templateBar').hidden = false;
   renderStats(job, transcript);
+  if (transcript) await loadOutputs(transcript.id);
 }
 
 const MOTIVO_RESPALDO = {
@@ -539,7 +547,9 @@ $('applyBtn').addEventListener('click', async () => {
   const button = $('applyBtn');
   button.disabled = true;
   button.innerHTML = '<span class="spinner"></span> Procesando…';
-  setOutput('');
+  // El texto anterior se queda hasta que llegue el primer fragmento del nuevo.
+  // Vaciarlo aqui dejaba la pantalla en blanco durante toda la espera y, si la
+  // llamada fallaba, se habia perdido sin haberlo generado de nuevo.
 
   try {
     const response = await fetch(`/api/transcripts/${state.transcript.id}/apply`, {
@@ -585,6 +595,10 @@ $('applyBtn').addEventListener('click', async () => {
       }
     }
     toast('Plantilla aplicada.');
+    // El servidor acaba de guardarla: se recarga la lista y se marca la
+    // recien hecha, que es la que se esta leyendo.
+    await loadOutputs(state.transcript.id);
+    renderOutputs(state.outputs[0]?.id ?? null);
   } catch (error) {
     toast(error.message, 'error');
     $('resultError').textContent = error.message;
@@ -614,6 +628,76 @@ $('saveTemplateBtn').addEventListener('click', async () => {
     toast(error.message, 'error');
   }
 });
+
+// --- Resultados guardados --------------------------------------------------
+
+/**
+ * Trae los resultados de plantilla que ya existen para esta transcripcion.
+ *
+ * El servidor guarda cada uno al aplicarlo, pero hasta ahora nadie los pedia:
+ * el acta de ayer seguia en la base de datos y la pantalla solo sabia enseniar
+ * la transcripcion cruda.
+ */
+async function loadOutputs(transcriptId, activeId = null) {
+  try {
+    const { outputs } = await api(`/api/transcripts/${transcriptId}`);
+    state.outputs = outputs ?? [];
+  } catch {
+    // Que falle esto no debe tumbar la vista: la transcripcion ya esta en
+    // pantalla y es lo principal.
+    state.outputs = [];
+  }
+  renderOutputs(activeId);
+}
+
+const templateName = (id) =>
+  id === 'personalizada'
+    ? 'Instrucciones propias'
+    : state.templates.builtin.find((t) => t.id === id)?.name ??
+      state.templates.custom.find((t) => t.id === id)?.name ??
+      id;
+
+const llmName = (id) => state.models.llm.find((m) => m.id === id)?.label ?? id;
+
+/** `activeId` null = mostrando la transcripcion; un numero = ese resultado. */
+function renderOutputs(activeId = null) {
+  const box = $('results');
+  box.innerHTML = '';
+
+  // Con un solo elemento no hay nada que elegir: la barra seria ruido.
+  if (state.outputs.length === 0) {
+    box.hidden = true;
+    return;
+  }
+
+  const pill = (id, titulo, detalle) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'result-pill';
+    button.setAttribute('aria-pressed', String(id === activeId));
+    button.append(titulo);
+    if (detalle) {
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = ` · ${detalle}`;
+      button.append(meta);
+    }
+    button.addEventListener('click', () => showOutput(id));
+    return button;
+  };
+
+  box.append(pill(null, 'Transcripcion', null));
+  for (const out of state.outputs) {
+    box.append(pill(out.id, templateName(out.template_id), `${llmName(out.llm_model)} · ${relativeTime(out.created_at)}`));
+  }
+  box.hidden = false;
+}
+
+function showOutput(id) {
+  const out = state.outputs.find((o) => o.id === id);
+  setOutput(out ? out.text : state.transcript?.formatted || state.transcript?.text || '');
+  renderOutputs(id);
+}
 
 // --- Salida ----------------------------------------------------------------
 
