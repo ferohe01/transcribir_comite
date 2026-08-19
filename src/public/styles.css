@@ -332,23 +332,75 @@ audio { width: 100%; margin-top: 12px; }
 
 /* --- Historial ------------------------------------------------------------ */
 
+.card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.card-head h2 { flex: 1; margin-bottom: 0; }
+
+.link-danger { color: var(--muted); font-size: var(--t-xs); }
+.link-danger:hover { color: var(--danger); text-decoration: underline; }
+
+.confirm-bar {
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #f5c2c2;
+  border-radius: var(--radius-sm);
+  background: #fff5f5;
+  font-size: var(--t-xs);
+  color: #9b2226;
+}
+.confirm-bar .acciones { display: flex; gap: 8px; margin-top: 10px; }
+.btn.danger { background: var(--danger); }
+.btn.danger:hover:not(:disabled) { background: #9b2226; }
+
 .history { display: flex; flex-direction: column; max-height: 440px; overflow-y: auto; }
 
+/* La fila dejo de ser un boton para poder llevar otro dentro: abrir y borrar
+   son dos acciones distintas y un boton no puede anidar otro. */
 .job {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 4px;
-  border: 0;
   border-bottom: 1px solid var(--line);
-  cursor: pointer;
-  transition: background 0.12s;
-  text-align: left;
-  width: 100%;
 }
 .job:last-child { border-bottom: 0; }
 .job:hover { background: var(--surface-alt); }
 .job.active .name { color: var(--brand-deep); }
+
+.job-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 4px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Aparece al pasar por encima o al llegar con el tabulador; no compite con el
+   nombre del archivo cuando no hace falta. */
+.job-delete {
+  flex: none;
+  padding: 6px;
+  margin-right: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s, background 0.12s;
+}
+.job:hover .job-delete,
+.job-delete:focus-visible { opacity: 1; }
+.job-delete:hover { color: var(--danger); background: #fff5f5; }
+
+.job.confirming {
+  display: block;
+  padding: 12px 4px;
+  font-size: var(--t-xs);
+  color: #9b2226;
+}
 
 .job .meta { flex: 1; min-width: 0; }
 .job .name {

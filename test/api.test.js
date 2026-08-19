@@ -343,6 +343,58 @@ test('un usuario no ve los trabajos de otro', async () => {
   assert.equal((await dueno(`/api/jobs/${jobId}`)).status, 200, 'su dueno si');
 });
 
+// --- Borrado del historial ------------------------------------------------
+
+test('borrar un trabajo se lleva su transcripcion y sus resultados', async () => {
+  const db = getDb();
+  const userId = db.prepare("SELECT id FROM users WHERE email = 'prueba@ejemplo.com'").get().id;
+
+  db.prepare(
+    `INSERT INTO jobs (id, user_id, filename, asr_model, status)
+     VALUES ('trabajo-borrable', ?, 'borrable.mp3', 'gemini-flash', 'done')`,
+  ).run(userId);
+  const transcriptId = db
+    .prepare(
+      `INSERT INTO transcripts (job_id, text, asr_model) VALUES ('trabajo-borrable', 'texto', 'gemini-flash')`,
+    )
+    .run().lastInsertRowid;
+  db.prepare(
+    `INSERT INTO outputs (transcript_id, template_id, text) VALUES (?, 'acta-reunion', 'un acta')`,
+  ).run(transcriptId);
+
+  // El historial avisa de cuantos documentos generados se perderian.
+  const listado = (await (await agent('/api/jobs')).json()).jobs;
+  assert.equal(listado.find((j) => j.id === 'trabajo-borrable').output_count, 1);
+
+  assert.equal((await agent('/api/jobs/trabajo-borrable', { method: 'DELETE' })).status, 200);
+
+  const queda = (tabla, columna, valor) =>
+    db.prepare(`SELECT COUNT(*) AS n FROM ${tabla} WHERE ${columna} = ?`).get(valor).n;
+  assert.equal(queda('jobs', 'id', 'trabajo-borrable'), 0);
+  assert.equal(queda('transcripts', 'job_id', 'trabajo-borrable'), 0, 'la transcripcion cae por cascada');
+  assert.equal(queda('outputs', 'transcript_id', transcriptId), 0, 'y los resultados con ella');
+});
+
+test('vaciar el historial no toca el de otro usuario', async () => {
+  const db = getDb();
+  const mio = db.prepare("SELECT id FROM users WHERE email = 'prueba@ejemplo.com'").get().id;
+  const ajeno = db.prepare("SELECT id FROM users WHERE email = 'otra@ejemplo.com'").get().id;
+
+  db.prepare(
+    `INSERT INTO jobs (id, user_id, filename, asr_model, status)
+     VALUES ('mio-1', ?, 'mio.mp3', 'gemini-flash', 'done'), ('ajeno-1', ?, 'ajeno.mp3', 'gemini-flash', 'done')`,
+  ).run(mio, ajeno);
+
+  const response = await agent('/api/jobs', { method: 'DELETE' });
+  assert.equal(response.status, 200);
+  assert.ok((await response.json()).deleted >= 1);
+
+  const cuenta = (userId) =>
+    db.prepare('SELECT COUNT(*) AS n FROM jobs WHERE user_id = ?').get(userId).n;
+  assert.equal(cuenta(mio), 0, 'el historial propio queda vacio');
+  assert.equal(cuenta(ajeno), 1, 'el del otro usuario, intacto');
+});
+
 // --- Ficheros servidos ----------------------------------------------------
 
 test('no se sirve el codigo fuente del servidor', async () => {

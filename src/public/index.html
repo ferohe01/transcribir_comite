@@ -154,7 +154,13 @@
       </section>
 
       <section class="card">
-        <h2>Historial</h2>
+        <div class="card-head">
+          <h2>Historial</h2>
+          <button class="link-danger" id="clearHistory" hidden>Vaciar</button>
+        </div>
+        <!-- La confirmacion se pide aqui dentro y no en un dialogo del
+             navegador: dice exactamente cuanto se pierde. -->
+        <div class="confirm-bar" id="historyConfirm" hidden></div>
         <div class="history" id="history"><p class="empty">Aun no hay transcripciones.</p></div>
       </section>
     </div>

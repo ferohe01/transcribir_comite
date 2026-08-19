@@ -411,6 +411,9 @@ async function loadHistory() {
   const { jobs } = await api('/api/jobs');
   state.jobs = jobs;
 
+  $('historyConfirm').hidden = true;
+  $('clearHistory').hidden = jobs.length === 0;
+
   const container = $('history');
   if (jobs.length === 0) {
     container.innerHTML = '<p class="empty">Aun no hay transcripciones.</p>';
@@ -418,27 +421,138 @@ async function loadHistory() {
   }
 
   container.innerHTML = '';
-  for (const job of jobs) {
-    const button = document.createElement('button');
-    button.className = `job${job.id === state.currentJobId ? ' active' : ''}`;
-    button.innerHTML = `
-      <span class="dot ${job.status}"></span>
-      <span class="meta">
-        <span class="name"></span>
-        <span class="when"></span>
-      </span>`;
-    button.querySelector('.name').textContent = job.filename;
-    button.querySelector('.when').textContent =
-      `${relativeTime(job.created_at)}${job.duration_s ? ` · ${formatDuration(job.duration_s)}` : ''}`;
-    button.addEventListener('click', () => openJob(job.id));
-    container.appendChild(button);
-  }
+  for (const job of jobs) container.appendChild(historyRow(job));
+}
+
+/** Una fila: un boton para abrir y otro para borrar, no un boton dentro de otro. */
+function historyRow(job) {
+  const row = document.createElement('div');
+  row.className = `job${job.id === state.currentJobId ? ' active' : ''}`;
+  row.dataset.jobId = job.id;
+
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'job-open';
+  open.innerHTML = `
+    <span class="dot ${job.status}"></span>
+    <span class="meta">
+      <span class="name"></span>
+      <span class="when"></span>
+    </span>`;
+  open.querySelector('.name').textContent = job.filename;
+  open.querySelector('.when').textContent =
+    `${relativeTime(job.created_at)}${job.duration_s ? ` · ${formatDuration(job.duration_s)}` : ''}`;
+  open.addEventListener('click', () => openJob(job.id));
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'job-delete';
+  // El icono no tiene texto: sin nombre accesible, un lector de pantalla solo
+  // anunciaria "boton".
+  remove.setAttribute('aria-label', `Borrar ${job.filename}`);
+  remove.innerHTML = '<svg class="icon"><use href="#i-close"/></svg>';
+  remove.addEventListener('click', () => askDeleteJob(row, job));
+
+  row.append(open, remove);
+  return row;
+}
+
+/** Cuenta lo que se pierde de verdad, incluidos los documentos generados. */
+const frase = (n, singular, plural) => `${n} ${n === 1 ? singular : plural}`;
+
+function askDeleteJob(row, job) {
+  const salidas = job.output_count ?? 0;
+  row.className = 'job confirming';
+  row.textContent =
+    salidas > 0
+      ? `Se borrara la transcripcion y ${frase(salidas, 'resultado', 'resultados')} de plantilla. No se puede deshacer.`
+      : 'Se borrara esta transcripcion. No se puede deshacer.';
+
+  row.append(
+    confirmarAcciones('Borrar', async () => {
+      await api(`/api/jobs/${job.id}`, { method: 'DELETE' });
+      if (state.currentJobId === job.id) resetResultPanel();
+      toast('Transcripcion borrada.');
+    }),
+  );
+}
+
+$('clearHistory').addEventListener('click', () => {
+  const total = state.jobs.length;
+  const salidas = state.jobs.reduce((n, j) => n + (j.output_count ?? 0), 0);
+
+  const bar = $('historyConfirm');
+  bar.textContent =
+    `Se borraran ${frase(total, 'transcripcion', 'transcripciones')}` +
+    (salidas > 0 ? ` y ${frase(salidas, 'resultado', 'resultados')} de plantilla` : '') +
+    '. No se puede deshacer.';
+
+  bar.append(
+    confirmarAcciones('Borrar todo', async () => {
+      const { deleted } = await api('/api/jobs', { method: 'DELETE' });
+      resetResultPanel();
+      toast(`${frase(deleted, 'transcripcion borrada', 'transcripciones borradas')}.`);
+    }),
+  );
+  bar.hidden = false;
+});
+
+/**
+ * El par de botones de una confirmacion. Cancelar vuelve a pintar el historial,
+ * que es la forma mas segura de deshacer el estado a medias.
+ */
+function confirmarAcciones(etiqueta, accion) {
+  const caja = document.createElement('div');
+  caja.className = 'acciones';
+
+  const si = document.createElement('button');
+  si.type = 'button';
+  si.className = 'btn danger small';
+  si.textContent = etiqueta;
+  si.addEventListener('click', async () => {
+    si.disabled = true;
+    try {
+      await accion();
+    } catch (error) {
+      toast(error.message, 'error');
+    }
+    await loadHistory();
+  });
+
+  const no = document.createElement('button');
+  no.type = 'button';
+  no.className = 'btn ghost small';
+  no.textContent = 'Cancelar';
+  no.addEventListener('click', () => loadHistory());
+
+  caja.append(si, no);
+  // El foco va al boton destructivo pero la accion sigue necesitando un clic:
+  // asi quien navega con teclado no tiene que buscar donde ha aparecido esto.
+  queueMicrotask(() => si.focus());
+  return caja;
+}
+
+/** Deja la columna derecha como al entrar, sin trabajo abierto. */
+function resetResultPanel() {
+  state.currentJobId = null;
+  state.transcript = null;
+  state.outputs = [];
+  renderOutputs();
+  setOutput('');
+  $('resultTitle').textContent = 'Resultado';
+  $('templateBar').hidden = true;
+  $('stats').hidden = true;
+  $('resultNote').hidden = true;
+  $('resultError').hidden = true;
 }
 
 function selectJob(jobId) {
   state.currentJobId = jobId;
-  for (const [index, node] of [...$('history').children].entries()) {
-    node.classList?.toggle('active', state.jobs[index]?.id === jobId);
+  // Se compara por identificador y no por posicion: correlacionar los hijos
+  // del DOM con el array por indice resaltaba la fila equivocada en cuanto
+  // los dos se desincronizaban.
+  for (const node of $('history').children) {
+    node.classList?.toggle('active', node.dataset?.jobId === jobId);
   }
 }
 

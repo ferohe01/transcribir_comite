@@ -163,7 +163,12 @@ export const jobs = {
   listForUser(userId, limit = 50) {
     return getDb()
       .prepare(
-        `SELECT j.*, t.id AS transcript_id
+        // El recuento de salidas viaja con cada trabajo para que la interfaz
+        // pueda avisar de cuantos documentos generados se lleva por delante
+        // un borrado. Sin el, el aviso seria generico y la cascada, una
+        // sorpresa.
+        `SELECT j.*, t.id AS transcript_id,
+                (SELECT COUNT(*) FROM outputs o WHERE o.transcript_id = t.id) AS output_count
            FROM jobs j
            LEFT JOIN transcripts t ON t.job_id = j.id
           WHERE j.user_id = ?
@@ -175,6 +180,17 @@ export const jobs = {
 
   delete(id, userId) {
     return getDb().prepare('DELETE FROM jobs WHERE id = ? AND user_id = ?').run(id, userId).changes;
+  },
+
+  /**
+   * Vacia el historial de un usuario.
+   *
+   * La conexion abre con `foreign_keys = ON`, asi que las transcripciones y
+   * sus salidas caen por cascada. Solo alcanza a quien lo pide: el filtro por
+   * user_id no es opcional.
+   */
+  deleteAllForUser(userId) {
+    return getDb().prepare('DELETE FROM jobs WHERE user_id = ?').run(userId).changes;
   },
 
   /**

@@ -205,6 +205,17 @@ router.get('/:id/events', (req, res) => {
   tick();
 });
 
+/**
+ * Vacia el historial entero del usuario.
+ *
+ * Va antes que `/:id` por claridad; Express no confundiria las dos rutas, pero
+ * leerlas en este orden evita la duda.
+ */
+router.delete('/', (req, res) => {
+  const deleted = jobs.deleteAllForUser(req.user.id);
+  res.json({ ok: true, deleted });
+});
+
 router.delete('/:id', (req, res) => {
   const deleted = jobs.delete(req.params.id, req.user.id);
   if (!deleted) return res.status(404).json({ error: 'Trabajo no encontrado.' });
