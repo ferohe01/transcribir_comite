@@ -65,6 +65,21 @@ export function createOpenAiCompatibleEngine({ baseUrl, providerName }) {
   };
 }
 
+/**
+ * Tope de espera para una plantilla, mucho mas alto que los 300 s por defecto.
+ *
+ * Aplicar una plantilla no es una peticion corta: el modelo escribe miles de
+ * tokens y el reloj corre desde que se envia, no desde el ultimo byte. Medido
+ * el 2026-08-19 sobre una transcripcion de 1 h 13 (9.300 palabras), GPT-5.6
+ * Luna tardo entre 52 y 191 s segun la pasada; una reunion de tres horas se
+ * plantaria en el limite anterior. Y agotarlo no devuelve un error limpio:
+ * aborta el stream a medias, con lo que se pierde el texto ya generado.
+ *
+ * No se sube el de la transcripcion: alli cada peticion es un fragmento de
+ * diez minutos y un tope largo solo retrasaria el reintento de uno atascado.
+ */
+const CHAT_TIMEOUT_MS = 15 * 60 * 1000;
+
 /** Chat de texto compatible con OpenAI, para la fase de plantillas. */
 export function createOpenAiCompatibleChat({ baseUrl, providerName }) {
   return async function* streamChat({ entry, system, user, signal }) {
@@ -94,7 +109,7 @@ export function createOpenAiCompatibleChat({ baseUrl, providerName }) {
           stream: true,
         }),
       },
-      { provider: providerName, signal },
+      { provider: providerName, signal, timeoutMs: CHAT_TIMEOUT_MS },
     );
 
     // Los eventos SSE pueden partirse entre paquetes TCP, asi que se acumula
