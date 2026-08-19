@@ -85,7 +85,7 @@
     <!-- ---------- Columna izquierda ---------- -->
     <div>
       <section class="card">
-        <h2><svg class="icon"><use href="#i-upload"/></svg> Nueva transcripcion</h2>
+        <h2>Nueva transcripcion</h2>
 
         <!--
           El control real es el input, y va DENTRO de la etiqueta: asi la zona
@@ -103,7 +103,7 @@
 
         <div id="filePicked" hidden>
           <div class="file-chip">
-            <svg class="icon" style="width:22px;height:22px;color:var(--brand)"><use href="#i-doc"/></svg>
+            <svg class="icon" style="width:20px;height:20px;color:var(--muted)"><use href="#i-doc"/></svg>
             <div class="meta">
               <span class="name" id="fileName"></span>
               <span class="size" id="fileSize"></span>
@@ -115,13 +115,18 @@
           <audio id="preview" controls></audio>
         </div>
 
-        <div class="field" style="margin-top:16px">
-          <label for="asrModel"><svg class="icon"><use href="#i-robot"/></svg> Motor de transcripcion</label>
-          <select id="asrModel"></select>
-          <p class="hint" id="asrHint"></p>
-        </div>
+        <!--
+          Motor, idioma, vocabulario y el boton no aparecen hasta que hay un
+          audio elegido. Antes se veian los cinco de golpe sobre una pantalla
+          vacia, cuando ninguno significa nada todavia.
+        -->
+        <div id="uploadSettings" hidden>
+          <div class="field">
+            <label for="asrModel">Motor de transcripcion</label>
+            <select id="asrModel"></select>
+            <p class="hint" id="asrHint"></p>
+          </div>
 
-        <div class="row">
           <div class="field">
             <label for="language">Idioma</label>
             <select id="language">
@@ -135,21 +140,21 @@
             </select>
             <p class="hint">Indicarlo acelera y mejora el resultado.</p>
           </div>
-        </div>
 
-        <div class="field">
-          <label for="hint">Vocabulario (opcional)</label>
-          <textarea id="hint" rows="2" placeholder="Nombres propios, siglas o terminos tecnicos que aparecen en el audio"></textarea>
-          <p class="hint">Ayuda al modelo a escribir bien los nombres poco comunes.</p>
-        </div>
+          <div class="field">
+            <label for="hint">Vocabulario (opcional)</label>
+            <textarea id="hint" rows="2" placeholder="Nombres propios, siglas o terminos tecnicos que aparecen en el audio"></textarea>
+            <p class="hint">Ayuda al modelo a escribir bien los nombres poco comunes.</p>
+          </div>
 
-        <button class="btn block" id="startBtn" disabled>
-          <svg class="icon"><use href="#i-mic"/></svg> Transcribir
-        </button>
+          <button class="btn block" id="startBtn" disabled>
+            <svg class="icon"><use href="#i-mic"/></svg> Transcribir
+          </button>
+        </div>
       </section>
 
       <section class="card">
-        <h2><svg class="icon"><use href="#i-clock"/></svg> Historial</h2>
+        <h2>Historial</h2>
         <div class="history" id="history"><p class="empty">Aun no hay transcripciones.</p></div>
       </section>
     </div>
@@ -157,19 +162,17 @@
     <!-- ---------- Columna derecha ---------- -->
     <div>
       <section class="card" id="progressCard" hidden>
-        <div class="progress-box">
-          <div class="progress-head">
-            <span class="label" id="progressLabel">Preparando…</span>
-            <span class="pct" id="progressPct">0%</span>
-          </div>
-          <div class="bar"><div id="progressFill"></div></div>
-          <p class="progress-detail" id="progressDetail"></p>
+        <div class="progress-head">
+          <span class="label" id="progressLabel">Preparando…</span>
+          <span class="pct" id="progressPct">0%</span>
         </div>
+        <div class="bar"><div id="progressFill"></div></div>
+        <p class="progress-detail" id="progressDetail"></p>
       </section>
 
       <section class="card">
         <div class="result-head">
-          <h2><svg class="icon"><use href="#i-doc"/></svg> <span id="resultTitle">Resultado</span></h2>
+          <h2><span id="resultTitle">Resultado</span></h2>
           <button class="btn ghost small" id="copyBtn" disabled>
             <svg class="icon"><use href="#i-copy"/></svg> Copiar
           </button>
@@ -189,7 +192,7 @@
         <div id="templateBar" hidden>
           <div class="row">
             <div class="field">
-              <label for="templateSelect"><svg class="icon"><use href="#i-wand"/></svg> Plantilla</label>
+              <label for="templateSelect">Plantilla</label>
               <select id="templateSelect"></select>
             </div>
             <div class="field">
@@ -197,17 +200,21 @@
               <select id="llmModel"></select>
             </div>
           </div>
+          <!-- Que hace la plantilla, antes del boton que la ejecuta y no
+               despues, que es donde estaba. -->
+          <p class="hint" id="templateDesc"></p>
+
           <div class="field" id="customPromptField" hidden>
             <label for="customPrompt">Instrucciones</label>
             <textarea id="customPrompt" rows="4" placeholder="Describe que quieres obtener de la transcripcion"></textarea>
           </div>
-          <div class="row" style="margin-bottom:16px">
+
+          <div class="template-actions">
             <button class="btn" id="applyBtn">
               <svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla
             </button>
             <button class="btn ghost" id="saveTemplateBtn" hidden>Guardar como plantilla</button>
           </div>
-          <p class="hint" id="templateDesc" style="margin:-8px 0 14px"></p>
         </div>
 
         <!--

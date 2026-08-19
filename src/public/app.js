@@ -280,6 +280,7 @@ function pickFile(file) {
   $('preview').src = URL.createObjectURL(file);
   $('dropzone').hidden = true;
   $('filePicked').hidden = false;
+  $('uploadSettings').hidden = false;
   $('startBtn').disabled = false;
 }
 
@@ -311,6 +312,7 @@ $('removeFile').addEventListener('click', () => {
   $('preview').removeAttribute('src');
   $('dropzone').hidden = false;
   $('filePicked').hidden = true;
+  $('uploadSettings').hidden = true;
   $('startBtn').disabled = true;
 });
 
@@ -396,7 +398,8 @@ const stageLabel = (stage, status) =>
   status === 'queued' ? 'En cola' : (STAGE_LABELS[stage] ?? 'Procesando');
 
 function setProgress(percent, label, detail) {
-  $('progressFill').style.width = `${percent}%`;
+  // scaleX y no width: animar el ancho recalcula la maquetacion en cada tick.
+  $('progressFill').style.transform = `scaleX(${Math.max(0, Math.min(100, percent)) / 100})`;
   $('progressPct').textContent = `${percent}%`;
   $('progressLabel').textContent = label;
   $('progressDetail').textContent = detail;

@@ -1,43 +1,71 @@
 /*
- * Se conserva la identidad visual de la version anterior (degradado violeta,
- * tarjetas blancas redondeadas) pero reescrita sobre variables CSS y sin
- * depender de FontAwesome por CDN: la politica de seguridad de contenido solo
- * permite recursos propios, asi que los iconos son SVG en linea.
+ * Sistema visual minimalista.
+ *
+ * Sustituye al degradado violeta a pantalla completa con tarjetas flotantes.
+ * El violeta se conserva, pero deja de ser el fondo para pasar a ser lo unico
+ * que se colorea: el boton principal, el anillo de foco, la barra de progreso
+ * y el resultado seleccionado. Todo lo demas es papel, tinta y una linea de
+ * 1px, de modo que el color signifique "aqui" en lugar de estar en todas
+ * partes.
+ *
+ * Los iconos son SVG en linea porque la politica de seguridad de contenido
+ * solo permite recursos propios.
  */
 
 :root {
-  --brand: #667eea;
-  --brand-dark: #5a67d8;
-  --brand-deep: #4c51bf;
-  --accent: #764ba2;
-  --ink: #2d3748;
-  --ink-soft: #4a5568;
-  --muted: #718096;
-  --faint: #a0aec0;
-  --line: #e2e8f0;
+  /* Un unico acento, en tres intensidades. */
+  --brand: #5b5bd6;
+  --brand-dark: #4a4ac4;
+  --brand-deep: #3f3fa8;
+  --brand-wash: #f0f0fb;
+
+  /* Tinta: tres pesos, no cinco. */
+  --ink: #1c2128;
+  --ink-soft: #3d4652;
+  /* 5,4:1 sobre blanco. El gris anterior (#718096) daba 4,01 y el mas claro
+     (#a0aec0) 2,26, por debajo del minimo legible en textos pequenos, que es
+     justo donde se usaban. */
+  --muted: #5f6b7a;
+
+  --line: #e4e7ec;
+  --line-strong: #d3d8e0;
+  --canvas: #f4f5f7;
   --surface: #ffffff;
-  --surface-alt: #f8f9ff;
-  --ok: #38a169;
-  --warn: #d69e2e;
-  --danger: #e53e3e;
-  --radius: 14px;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  --surface-alt: #f7f8fa;
+
+  --ok: #2f855a;
+  --warn: #b7791f;
+  --danger: #c53030;
+
+  /* Escala tipografica con saltos reales: antes casi todo caia entre 0,72rem
+     y 1rem, asi que nada destacaba sobre nada. */
+  --t-xs: 0.75rem;
+  --t-sm: 0.8125rem;
+  --t-base: 0.9375rem;
+  --t-lg: 1.0625rem;
+  --t-xl: 1.375rem;
+
+  --radius: 10px;
+  --radius-sm: 7px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: linear-gradient(135deg, var(--brand) 0%, var(--accent) 100%);
-  background-attachment: fixed;
+  background: var(--canvas);
   color: var(--ink);
   min-height: 100vh;
+  font-size: var(--t-base);
   line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
 
 button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, select, textarea { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
+
+::selection { background: var(--brand-wash); color: var(--brand-deep); }
 
 /* Oculto a la vista pero no al teclado ni al lector de pantalla. `display:
    none` sacaria el elemento del orden de foco, que es justo lo que no
@@ -57,11 +85,9 @@ input, select, textarea { font: inherit; color: inherit; }
 /* Un unico anillo de foco para toda la aplicacion. `:focus-visible` solo se
    dibuja cuando el foco viene del teclado, asi que no ensucia el clic. */
 :focus-visible {
-  outline: 3px solid var(--brand-deep);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
-/* Sobre el degradado violeta, el morado oscuro no se distingue. */
-.topbar :focus-visible { outline-color: #ffffff; }
 
 .icon { width: 1em; height: 1em; vertical-align: -0.125em; fill: currentColor; flex: none; }
 
@@ -76,118 +102,123 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .login-card {
   background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 40px;
-  width: min(400px, 100%);
+  padding: 40px 36px;
+  width: min(380px, 100%);
 }
 
-.login-card h1 { font-size: 1.5rem; margin-bottom: 6px; }
-.login-card p.sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
+.login-card h1 {
+  font-size: var(--t-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.login-card p.sub { color: var(--muted); font-size: var(--t-sm); margin-bottom: 30px; }
 
 .login-card .switch {
-  margin-top: 20px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
   text-align: center;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: var(--t-sm);
 }
 
 .inline-btn {
   color: var(--brand);
   font-weight: 600;
-  text-decoration: underline;
   font-size: inherit;
 }
-.inline-btn:hover { color: var(--brand-dark); }
+.inline-btn:hover { color: var(--brand-deep); text-decoration: underline; }
 
 /* --- Estructura ----------------------------------------------------------- */
-
-.app { max-width: 1400px; margin: 0 auto; padding: 20px; }
 
 .topbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  color: white;
-  padding: 8px 4px 24px;
+  gap: 12px;
+  padding: 0 24px;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
-.topbar h1 { font-size: 1.35rem; font-weight: 600; }
+.topbar .icon { color: var(--brand); }
+.topbar h1 {
+  font-size: var(--t-base);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
 .topbar .spacer { flex: 1; }
-.topbar .who { font-size: 0.85rem; opacity: 0.85; }
+.topbar .who { font-size: var(--t-sm); color: var(--muted); }
 
-.link-btn {
-  color: white;
-  text-decoration: underline;
-  font-size: 0.85rem;
-  opacity: 0.85;
-}
-.link-btn:hover { opacity: 1; }
+.link-btn { color: var(--muted); font-size: var(--t-sm); }
+.link-btn:hover { color: var(--ink); text-decoration: underline; }
+
+.app { max-width: 1240px; margin: 0 auto; padding: 28px 24px 48px; }
 
 .layout {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 28px;
   align-items: start;
 }
 
+/* Las secciones ya no flotan sobre un degradado: papel plano delimitado por
+   una linea, que es todo lo que hace falta para agruparlas. */
 .card {
   background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   padding: 24px;
 }
 
 .card + .card { margin-top: 20px; }
 
 .card h2 {
-  font-size: 1rem;
+  font-size: var(--t-lg);
   font-weight: 600;
-  color: var(--ink-soft);
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-bottom: 20px;
 }
 
 /* --- Formularios ---------------------------------------------------------- */
 
-.field { margin-bottom: 16px; }
+.field { margin-bottom: 18px; }
 
 .field label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 0.85rem;
+  display: block;
+  font-size: var(--t-sm);
   font-weight: 600;
   color: var(--ink-soft);
-  margin-bottom: 7px;
+  margin-bottom: 6px;
 }
 
 .field input,
 .field select,
 .field textarea {
   width: 100%;
-  padding: 11px 13px;
-  border: 2px solid var(--line);
-  border-radius: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
   background: var(--surface);
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
+.field input::placeholder,
+.field textarea::placeholder { color: var(--muted); }
 
-/* El borde coloreado acompana al anillo de foco, no lo sustituye: por si
-   solo pasa de #e2e8f0 a #667eea, un contraste de 2,97:1 que no llega al
-   minimo de 3:1 exigido a un indicador no textual. */
+/* El borde coloreado acompana al anillo de foco, no lo sustituye: por si solo
+   no llega al contraste minimo de 3:1 que se le exige a un indicador. */
 .field input:focus,
 .field select:focus,
-.field textarea:focus {
-  border-color: var(--brand);
-}
+.field textarea:focus { border-color: var(--brand); }
 
-.field textarea { resize: vertical; min-height: 90px; font-family: inherit; }
-.field .hint { font-size: 0.78rem; color: var(--muted); margin-top: 5px; }
+.field textarea { resize: vertical; min-height: 74px; font-family: inherit; }
+.field .hint { font-size: var(--t-xs); color: var(--muted); margin-top: 6px; }
 
-.row { display: flex; gap: 12px; }
+.row { display: flex; gap: 14px; }
 .row > * { flex: 1; }
 
 .btn {
@@ -195,81 +226,81 @@ input, select, textarea { font: inherit; color: inherit; }
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 20px;
-  border-radius: 10px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-size: var(--t-sm);
   font-weight: 600;
   background: var(--brand);
-  color: white;
-  transition: background 0.2s, transform 0.1s;
+  color: #ffffff;
+  transition: background 0.15s;
 }
 .btn:hover:not(:disabled) { background: var(--brand-dark); }
-.btn:active:not(:disabled) { transform: translateY(1px); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn.block { width: 100%; }
-.btn.ghost { background: var(--surface-alt); color: var(--brand-deep); border: 2px solid var(--line); }
-.btn.ghost:hover:not(:disabled) { background: #eef0ff; border-color: var(--brand); }
-.btn.small { padding: 7px 13px; font-size: 0.83rem; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.block { width: 100%; padding: 12px 18px; }
+.btn.ghost {
+  background: var(--surface);
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+}
+.btn.ghost:hover:not(:disabled) { background: var(--surface-alt); border-color: var(--muted); }
+.btn.small { padding: 7px 12px; font-size: var(--t-xs); }
 
 /* --- Zona de subida ------------------------------------------------------- */
 
 .dropzone {
   display: block;
-  border: 3px dashed var(--line);
+  border: 1px dashed var(--line-strong);
   border-radius: var(--radius);
-  padding: 34px 20px;
+  padding: 32px 20px;
   text-align: center;
   cursor: pointer;
   background: var(--surface-alt);
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.15s, background 0.15s;
 }
 .dropzone:hover, .dropzone.dragover {
   border-color: var(--brand);
-  background: #f0f2ff;
+  background: var(--brand-wash);
 }
 /* El input que da el foco mide un pixel, asi que el anillo lo dibuja la zona
    entera; si no, tabular hasta aqui no se veria. */
 .dropzone:focus-within {
-  border-color: var(--brand-deep);
-  background: #eef0ff;
-  outline: 3px solid var(--brand-deep);
+  border-color: var(--brand);
+  background: var(--brand-wash);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
-.dropzone .icon { width: 40px; height: 40px; color: var(--brand); margin-bottom: 10px; }
-.dropzone strong { display: block; color: var(--ink-soft); margin-bottom: 4px; }
-.dropzone span { font-size: 0.82rem; color: var(--faint); }
+.dropzone .icon { width: 26px; height: 26px; color: var(--muted); margin-bottom: 12px; }
+.dropzone strong { display: block; font-size: var(--t-base); font-weight: 600; margin-bottom: 5px; }
+.dropzone span { font-size: var(--t-xs); color: var(--muted); }
 
 .file-chip {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px;
+  padding: 12px;
   background: var(--surface-alt);
-  border: 2px solid var(--line);
-  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 .file-chip .meta { flex: 1; min-width: 0; }
 .file-chip .name {
   display: block;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: var(--t-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.file-chip .size { font-size: 0.78rem; color: var(--muted); }
-.file-chip .remove { color: var(--danger); padding: 6px; border-radius: 6px; }
-.file-chip .remove:hover { background: #fed7d7; }
+.file-chip .size { font-size: var(--t-xs); color: var(--muted); }
+.file-chip .remove { color: var(--muted); padding: 6px; border-radius: var(--radius-sm); }
+.file-chip .remove:hover { color: var(--danger); background: #fff5f5; }
 
 audio { width: 100%; margin-top: 12px; }
 
-/* --- Progreso ------------------------------------------------------------- */
+/* Los ajustes solo tienen sentido cuando ya hay un audio elegido. */
+#uploadSettings { margin-top: 22px; }
 
-.progress-box {
-  background: var(--surface-alt);
-  border-radius: 10px;
-  padding: 18px;
-  border: 2px solid var(--line);
-}
+/* --- Progreso ------------------------------------------------------------- */
 
 .progress-head {
   display: flex;
@@ -277,59 +308,68 @@ audio { width: 100%; margin-top: 12px; }
   align-items: baseline;
   margin-bottom: 10px;
 }
-.progress-head .label { font-weight: 600; font-size: 0.9rem; }
-.progress-head .pct { font-weight: 700; color: var(--brand); }
-
-.bar { height: 9px; background: var(--line); border-radius: 5px; overflow: hidden; }
-.bar > div {
-  height: 100%;
-  width: 0;
-  background: linear-gradient(90deg, var(--brand), var(--accent));
-  border-radius: 5px;
-  transition: width 0.4s ease;
+.progress-head .label { font-weight: 600; font-size: var(--t-sm); }
+.progress-head .pct {
+  font-weight: 600;
+  font-size: var(--t-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
-.progress-detail { font-size: 0.8rem; color: var(--muted); margin-top: 9px; }
+.bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+/* Se escala en lugar de animar `width`: mover una propiedad de maquetacion en
+   cada tick de progreso obliga al navegador a recalcular el layout entero. */
+.bar > div {
+  height: 100%;
+  width: 100%;
+  background: var(--brand);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease;
+}
+
+.progress-detail { font-size: var(--t-xs); color: var(--muted); margin-top: 10px; }
 
 /* --- Historial ------------------------------------------------------------ */
 
-.history { display: flex; flex-direction: column; gap: 8px; max-height: 460px; overflow-y: auto; }
+.history { display: flex; flex-direction: column; max-height: 440px; overflow-y: auto; }
 
 .job {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 12px;
-  border: 2px solid var(--line);
-  border-radius: 10px;
+  padding: 12px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background 0.12s;
   text-align: left;
   width: 100%;
 }
-.job:hover { border-color: var(--brand); background: var(--surface-alt); }
-.job.active { border-color: var(--brand); background: #f0f2ff; }
+.job:last-child { border-bottom: 0; }
+.job:hover { background: var(--surface-alt); }
+.job.active .name { color: var(--brand-deep); }
 
 .job .meta { flex: 1; min-width: 0; }
 .job .name {
   display: block;
-  font-size: 0.85rem;
+  font-size: var(--t-sm);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.job .when { font-size: 0.75rem; color: var(--muted); }
+.job .when { font-size: var(--t-xs); color: var(--muted); }
 
-.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.dot.queued { background: var(--faint); }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.dot.queued { background: var(--muted); }
 .dot.running { background: var(--warn); animation: pulse 1.2s infinite; }
 .dot.done { background: var(--ok); }
 .dot.error { background: var(--danger); }
 
-@keyframes pulse { 50% { opacity: 0.35; } }
+@keyframes pulse { 50% { opacity: 0.3; } }
 
-.empty { color: var(--faint); font-size: 0.85rem; text-align: center; padding: 24px 0; }
+.empty { color: var(--muted); font-size: var(--t-sm); padding: 20px 0; }
 
 /* --- Resultado ------------------------------------------------------------ */
 
@@ -338,33 +378,48 @@ audio { width: 100%; margin-top: 12px; }
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
-.result-head h2 { margin: 0; flex: 1; }
+/* El nombre del archivo es lo que identifica la pantalla: pesa mas que el
+   titulo de una seccion, no lo mismo. */
+.result-head h2 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-xl);
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.template-actions {
+  display: flex;
+  gap: 10px;
+  margin: 18px 0 22px;
+}
 
 /* Selector de resultados ya generados. Son variantes de un mismo objeto, no
    navegacion, de ahi el grupo de botones de alternancia y no una lista. */
 .results {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 14px;
 }
 
 .result-pill {
-  padding: 7px 14px;
-  border: 2px solid var(--line);
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: var(--surface);
   color: var(--ink-soft);
-  font-size: 0.82rem;
-  line-height: 1.3;
+  font-size: var(--t-xs);
+  line-height: 1.4;
   text-align: left;
-  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
-.result-pill:hover { border-color: var(--brand); background: var(--surface-alt); }
-/* Fondo --brand-deep y no --brand: el blanco sobre --brand da 3,66:1 y este
-   texto es pequeno, asi que necesita los 4,5:1 que si alcanza el oscuro. */
+.result-pill:hover { border-color: var(--muted); background: var(--surface-alt); }
+/* Fondo --brand-deep y no --brand: este texto es pequeno y necesita los
+   4,5:1 que el acento claro no alcanza sobre blanco. */
 .result-pill[aria-pressed="true"] {
   background: var(--brand-deep);
   border-color: var(--brand-deep);
@@ -374,14 +429,14 @@ audio { width: 100%; margin-top: 12px; }
 
 .output {
   width: 100%;
-  min-height: 420px;
-  padding: 18px;
-  border: 2px solid var(--line);
-  border-radius: 10px;
+  min-height: 440px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   background: var(--surface-alt);
   font-family: 'Cascadia Code', 'Consolas', monospace;
-  font-size: 0.83rem;
-  line-height: 1.75;
+  font-size: var(--t-sm);
+  line-height: 1.8;
   white-space: pre-wrap;
   overflow-y: auto;
   resize: vertical;
@@ -390,61 +445,79 @@ audio { width: 100%; margin-top: 12px; }
 .stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;
-  padding: 13px 16px;
-  background: var(--surface-alt);
-  border-radius: 10px;
-  margin-bottom: 14px;
-  font-size: 0.8rem;
+  gap: 24px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
 }
-.stats div { display: flex; flex-direction: column; }
-.stats .k { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.stats .v { font-weight: 700; color: var(--ink); }
+.stats div { display: flex; flex-direction: column; gap: 2px; }
+.stats .k {
+  color: var(--muted);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.stats .v { font-weight: 600; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
 
 /* --- Avisos --------------------------------------------------------------- */
 
 .alert {
   padding: 11px 14px;
-  border-radius: 9px;
-  font-size: 0.85rem;
-  margin-bottom: 14px;
-  border-left: 4px solid;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: var(--t-sm);
+  margin-bottom: 16px;
 }
-.alert.error { background: #fff5f5; border-color: var(--danger); color: #9b2c2c; }
-.alert.info { background: #ebf8ff; border-color: #3182ce; color: #2c5282; }
+.alert.error { background: #fff5f5; border-color: #f5c2c2; color: #9b2226; }
+.alert.info { background: var(--brand-wash); border-color: #cdcdf2; color: var(--brand-deep); }
 
 .toast {
   position: fixed;
   bottom: 24px;
   right: 24px;
   background: var(--ink);
-  color: white;
-  padding: 13px 20px;
-  border-radius: 10px;
-  box-shadow: var(--shadow);
+  color: #ffffff;
+  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  font-size: var(--t-sm);
+  box-shadow: 0 6px 20px rgba(28, 33, 40, 0.18);
   opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 0.25s, transform 0.25s;
+  transform: translateY(10px);
+  transition: opacity 0.2s, transform 0.2s;
   pointer-events: none;
   z-index: 100;
   max-width: 380px;
 }
 .toast.show { opacity: 1; transform: translateY(0); }
 .toast.error { background: var(--danger); }
-.toast.success { background: var(--ok); }
 
 .spinner {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: white;
+  border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Quien pide menos movimiento no deberia ver un punto latiendo durante las
+   dos horas que dura una transcripcion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
-  .app { padding: 12px; }
-  .card { padding: 18px; }
+  .app { padding: 20px 16px 40px; }
+  .topbar { padding: 0 16px; }
+  .card { padding: 20px; }
+}
+
+@media (max-width: 640px) {
+  .row { flex-direction: column; }
 }
