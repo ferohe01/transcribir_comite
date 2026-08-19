@@ -165,6 +165,17 @@ input, select, textarea { font: inherit; color: inherit; }
   align-items: start;
 }
 
+/* Cada columna separa sus tarjetas con `gap` y no con el margen del hermano
+   adyacente. La tarjeta de progreso empieza oculta, y `.card + .card` se
+   aplicaba igual: la columna derecha arrancaba 20px mas abajo que la
+   izquierda aunque no hubiera nada visible que la empujara. Un elemento con
+   `display: none` no es un item de la rejilla, asi que no genera separacion. */
+.layout > div {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
 /* Las secciones ya no flotan sobre un degradado: papel plano delimitado por
    una linea, que es todo lo que hace falta para agruparlas. */
 .card {
@@ -173,8 +184,6 @@ input, select, textarea { font: inherit; color: inherit; }
   border-radius: var(--radius);
   padding: 24px;
 }
-
-.card + .card { margin-top: 20px; }
 
 .card h2 {
   font-size: var(--t-lg);
@@ -270,7 +279,13 @@ input, select, textarea { font: inherit; color: inherit; }
   outline-offset: 2px;
 }
 .dropzone .icon { width: 26px; height: 26px; color: var(--muted); margin-bottom: 12px; }
-.dropzone strong { display: block; font-size: var(--t-base); font-weight: 600; margin-bottom: 5px; }
+.dropzone strong {
+  display: block;
+  font-size: var(--t-base);
+  font-weight: 600;
+  margin-bottom: 5px;
+  text-wrap: balance;
+}
 .dropzone span { font-size: var(--t-xs); color: var(--muted); }
 
 .file-chip {
