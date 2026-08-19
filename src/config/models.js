@@ -147,6 +147,15 @@ export const LLM_MODELS = {
     envKey: 'OPENAI_API_KEY',
     fixedTemperature: true,
   },
+  // Comprobado contra la API el 2026-08-19: rechaza `temperature` igual que el
+  // resto de la familia GPT-5, de ahi fixedTemperature.
+  'openai-luna': {
+    label: 'OpenAI · GPT-5.6 Luna',
+    engine: 'openai',
+    model: 'gpt-5.6-luna',
+    envKey: 'OPENAI_API_KEY',
+    fixedTemperature: true,
+  },
   // Los GPT-OSS razonan antes de responder y ese razonamiento gasta el mismo
   // presupuesto de salida. Con el limite por defecto (3072 tokens) se lo
   // gastaban entero pensando y devolvian texto vacio con finish_reason
