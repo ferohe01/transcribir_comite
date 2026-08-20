@@ -95,7 +95,10 @@ export async function prepareChunks(
   const concurrency = Math.min(cuts.length, Math.max(2, os.cpus().length - 1));
   let encoded = 0;
 
-  onProgress?.({ fraction: 0.15, detail: `Comprimiendo ${cuts.length} fragmento(s)` });
+  onProgress?.({
+    fraction: 0.15,
+    detail: `Comprimiendo ${cuts.length} ${cuts.length === 1 ? 'fragmento' : 'fragmentos'}`,
+  });
 
   const chunks = await mapWithConcurrency(cuts, concurrency, async (cut, index) => {
     const chunk = await encodeRange(inputPath, cut, index, outDir, signal);

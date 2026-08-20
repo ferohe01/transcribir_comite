@@ -84,7 +84,7 @@ export async function runPipeline({
     'preparing',
     1,
     `${(source.sizeBytes / 1048576).toFixed(1)} MB -> ${(prepared.totalBytes / 1048576).toFixed(1)} MB ` +
-      `en ${chunks.length} fragmento(s)`,
+      `en ${chunks.length} ${chunks.length === 1 ? 'fragmento' : 'fragmentos'}`,
   );
 
   // --- 3. Transcribir en paralelo ---------------------------------------

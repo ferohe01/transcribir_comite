@@ -28,13 +28,13 @@ export const SYSTEM_PROMPT =
 export const BUILTIN_TEMPLATES = {
   literal: {
     name: 'Transcripcion literal',
-    description: 'El texto tal cual, sin post-proceso. Instantaneo y sin coste adicional.',
+    description: 'El texto tal cual, sin post-proceso. Instantáneo y sin coste adicional.',
     prompt: null, // sin prompt = no se llama al LLM
   },
 
   'evaluacion-proyectos': {
     name: 'Evaluacion de proyectos',
-    description: 'Extrae codigo de proyecto, los 3 comentarios de los evaluadores y el estado.',
+    description: 'Extrae el código del proyecto, los tres comentarios de los evaluadores y el estado.',
     // Conservado literalmente del prompt de la version anterior (legacy/server.js:84-97).
     prompt: [
       'Este audio corresponde a la evaluación de proyectos, para cada uno de los proyectos evaluados:',
@@ -82,7 +82,7 @@ export const BUILTIN_TEMPLATES = {
 
   resumen: {
     name: 'Resumen ejecutivo',
-    description: 'Los puntos clave en media pagina.',
+    description: 'Los puntos clave en media página.',
     prompt: [
       'Elabora un resumen ejecutivo de la transcripción:',
       '',
@@ -96,7 +96,7 @@ export const BUILTIN_TEMPLATES = {
 
   'limpiar-transcripcion': {
     name: 'Transcripcion limpia',
-    description: 'Elimina muletillas y repeticiones, y ordena en parrafos. Mantiene el contenido.',
+    description: 'Elimina muletillas y repeticiones, y ordena en párrafos. Mantiene el contenido.',
     prompt: [
       'Limpia esta transcripción para que sea legible:',
       '',
