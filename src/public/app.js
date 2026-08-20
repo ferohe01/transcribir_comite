@@ -341,7 +341,8 @@ $('dropzone').addEventListener('drop', (event) => {
   if (event.dataTransfer.files[0]) pickFile(event.dataTransfer.files[0]);
 });
 
-$('removeFile').addEventListener('click', () => {
+/** Suelta el archivo elegido y devuelve la columna izquierda a su estado inicial. */
+function soltarArchivo() {
   if ($('preview').src) URL.revokeObjectURL($('preview').src);
   state.file = null;
   $('fileInput').value = '';
@@ -350,10 +351,27 @@ $('removeFile').addEventListener('click', () => {
   $('filePicked').hidden = true;
   $('uploadSettings').hidden = true;
   $('startBtn').disabled = true;
+}
+
+$('removeFile').addEventListener('click', () => {
+  soltarArchivo();
   // Solo lo transitorio: quitar el archivo que ibas a subir no deberia
   // borrarte de la pantalla la transcripcion que estas leyendo.
   $('resultError').hidden = true;
   $('progressCard').hidden = true;
+});
+
+/**
+ * Deja la pantalla como recien entrado: sin archivo, sin transcripcion abierta
+ * y sin nada a medias. El historial no se toca, que es lo persistente.
+ */
+$('newTranscription').addEventListener('click', () => {
+  soltarArchivo();
+  resetResultPanel();
+  selectJob(null);
+  $('hint').value = '';
+  // El foco cae en la zona de subida, que es lo siguiente que hay que hacer.
+  $('fileInput').focus();
 });
 
 // --- Lanzar una transcripcion ---------------------------------------------
