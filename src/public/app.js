@@ -453,7 +453,11 @@ function showResultError(titular, detalle, reintentar = null) {
   const caja = $('resultError');
   caja.textContent = titular;
 
-  if (detalle && detalle !== titular) {
+  // Ultima defensa: si el detalle sigue pareciendo un volcado, se queda en la
+  // consola. El servidor ya deberia haberlo traducido, pero un JSON en crudo
+  // en pantalla no ayuda a nadie y da mala impresion del producto.
+  const legible = detalle && detalle !== titular && !/^[[{]|\n\s*"/.test(detalle);
+  if (legible) {
     const linea = document.createElement('span');
     linea.className = 'detalle';
     linea.textContent = detalle;

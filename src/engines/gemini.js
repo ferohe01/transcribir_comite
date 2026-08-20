@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold, ThinkingLevel } from '@google/genai';
+import { describeProviderError } from './http.js';
 
 /**
  * Motor Gemini sobre el SDK unificado `@google/genai`.
@@ -134,18 +135,25 @@ export async function transcribeChunk({ filePath, entry, language, hint, signal 
 }
 
 export async function* streamChat({ entry, system, user, signal }) {
-  const stream = await getClient().models.generateContentStream({
-    model: entry.model,
-    contents: [{ role: 'user', parts: [{ text: user }] }],
-    config: {
-      systemInstruction: system,
-      temperature: 0.1,
-      safetySettings: SAFETY_OFF,
-      abortSignal: signal,
-    },
-  });
+  try {
+    const stream = await getClient().models.generateContentStream({
+      model: entry.model,
+      contents: [{ role: 'user', parts: [{ text: user }] }],
+      config: {
+        systemInstruction: system,
+        temperature: 0.1,
+        safetySettings: SAFETY_OFF,
+        abortSignal: signal,
+      },
+    });
 
-  for await (const chunk of stream) {
-    if (chunk.text) yield chunk.text;
+    for await (const chunk of stream) {
+      if (chunk.text) yield chunk.text;
+    }
+  } catch (error) {
+    // El SDK lanza el error del servicio tal cual: una cadena JSON con otra
+    // cadena JSON dentro. Sin esto acababa en pantalla en crudo.
+    if (signal?.aborted) throw error;
+    throw new Error(describeProviderError('Gemini', error));
   }
 }

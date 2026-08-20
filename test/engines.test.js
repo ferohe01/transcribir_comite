@@ -366,3 +366,51 @@ test('una respuesta sin texto es un error, no un resultado vacio', async () => {
     },
   );
 });
+
+
+// --- Mensajes de error de los proveedores ---------------------------------
+
+test('un error anidado de Gemini no llega en crudo a la pantalla', async () => {
+  const { describeProviderError, providerMessage } = await import('../src/engines/http.js');
+
+  // Reproduce la forma real capturada en produccion el 2026-08-19: el SDK
+  // envuelve una cadena JSON dentro del `message` de otra cadena JSON.
+  const interno = JSON.stringify({
+    error: {
+      code: 429,
+      message:
+        'Your prepayment credits are depleted. Please go to AI Studio at ' +
+        'https://ai.studio/projects to manage your project and billing.',
+      status: 'RESOURCE_EXHAUSTED',
+    },
+  });
+  const crudo = JSON.stringify({ error: { message: interno, code: 429, status: 'Too Many Requests' } });
+
+  const desenvuelto = providerMessage(crudo);
+  assert.ok(!desenvuelto.includes('{'), 'no debe quedar ni una llave de JSON');
+  assert.match(desenvuelto, /prepayment credits are depleted/);
+
+  const legible = describeProviderError('Gemini', crudo);
+  assert.match(legible, /sin saldo/, 'se explica en castellano que hay que hacer');
+  assert.ok(!legible.includes('{'), 'y sin rastro del volcado');
+  assert.ok(!legible.includes('http'), 'ni enlaces a la consola del proveedor');
+});
+
+test('cada tipo de fallo del proveedor tiene su explicacion', async () => {
+  const { describeProviderError } = await import('../src/engines/http.js');
+  const casos = [
+    ['{"error":{"message":"Rate limit reached for requests"}}', /limite de uso/],
+    ['{"error":{"message":"Invalid API key provided"}}', /no es valida/],
+    ['{"error":{"message":"The model gpt-9 does not exist"}}', /ya no existe/],
+  ];
+  for (const [crudo, esperado] of casos) {
+    assert.match(describeProviderError('OpenAI', crudo), esperado);
+  }
+
+  // Lo que no encaja en ninguna causa conocida se muestra tal cual, pero
+  // desenvuelto: vale mas ingles legible que un volcado.
+  assert.equal(
+    describeProviderError('Groq', '{"error":{"message":"Something unusual happened"}}'),
+    'Something unusual happened',
+  );
+});

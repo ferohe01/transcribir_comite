@@ -37,13 +37,70 @@ const sleep = (ms, signal) =>
   });
 
 /** Extrae el mensaje util de un error del proveedor, sin el JSON alrededor. */
-function providerMessage(body) {
-  try {
-    const parsed = JSON.parse(body);
-    return parsed.error?.message ?? parsed.message ?? body;
-  } catch {
-    return body;
+/**
+ * Saca la frase que hay dentro del error de un proveedor.
+ *
+ * Los SDK anidan JSON dentro de JSON: el error de Gemini llega como una cadena
+ * JSON cuyo `message` es a su vez otra cadena JSON con el error de verdad. Con
+ * una sola vuelta de desenvoltura, la pantalla acababa ensenando al usuario un
+ * volcado que empezaba por `{"error":{"message":"{ \"error\": { \"code\": 429`.
+ */
+export function providerMessage(body) {
+  let texto = typeof body === 'string' ? body : String(body?.message ?? body ?? '');
+
+  // Tres vueltas bastan: ningun proveedor anida mas que eso.
+  for (let i = 0; i < 3; i += 1) {
+    let dentro;
+    try {
+      const parsed = JSON.parse(texto);
+      dentro = parsed?.error?.message ?? parsed?.message ?? null;
+    } catch {
+      break;
+    }
+    if (typeof dentro !== 'string' || dentro === texto) break;
+    texto = dentro;
   }
+
+  return texto.replace(/\s+/g, ' ').trim();
+}
+
+// Lo que de verdad le ha pasado al usuario, dicho en su idioma. El texto del
+// proveedor viene en ingles y a menudo con enlaces a su consola: sirve para el
+// registro, no para la pantalla.
+const CAUSAS = [
+  {
+    patron: /credits?\s+are\s+depleted|prepayment|billing|insufficient[_\s]quota/i,
+    texto: (p) => `La cuenta de ${p} se ha quedado sin saldo. Elige otro modelo o recarga la cuenta del proveedor.`,
+  },
+  {
+    patron: /resource[_\s]exhausted|rate.?limit|quota|too many requests/i,
+    texto: (p) => `${p} ha alcanzado su limite de uso. Prueba con otro modelo o espera unos minutos.`,
+  },
+  {
+    patron: /api.?key|unauthenticated|unauthorized|permission.?denied|invalid.?authentication/i,
+    texto: (p) => `La clave de ${p} no es valida o no tiene permiso para este modelo.`,
+  },
+  {
+    patron: /model.*not found|does not exist|unsupported model/i,
+    texto: (p) => `El modelo elegido ya no existe en ${p}. Revisa el catalogo con: npm run check-models`,
+  },
+];
+
+/**
+ * Traduce el fallo de un proveedor a una frase que se pueda enseniar.
+ *
+ * Solo para la fase de plantillas. En la de transcripcion NO se usa: alli el
+ * motivo concreto del proveedor ("7200 seconds of audio per hour") es lo que
+ * aparece en la barra de progreso y explica por que un fragmento paso al motor
+ * de respaldo; cambiarlo por una frase generica quita informacion util.
+ *
+ * Si no encaja en ninguna causa conocida se devuelve el mensaje del proveedor
+ * ya desenvuelto: vale mas un texto en ingles que un volcado de JSON.
+ */
+export function describeProviderError(provider, body) {
+  const crudo = providerMessage(body);
+  const causa = CAUSAS.find((c) => c.patron.test(crudo));
+  return causa ? causa.texto(provider) : crudo.slice(0, 300);
 }
 
 export async function fetchWithRetry(url, options = {}, {
