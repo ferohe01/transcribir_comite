@@ -174,6 +174,10 @@ input, select, textarea { font: inherit; color: inherit; }
   display: grid;
   gap: 20px;
   align-content: start;
+  /* Sin esto, un hijo que no quepa ensancha la columna o se sale de ella. El
+     valor por defecto de un item de rejilla es `auto`, que se niega a encoger
+     por debajo del contenido. */
+  min-width: 0;
 }
 
 /* Las secciones ya no flotan sobre un degradado: papel plano delimitado por
@@ -310,7 +314,19 @@ input, select, textarea { font: inherit; color: inherit; }
 .file-chip .remove { color: var(--muted); padding: 6px; border-radius: var(--radius-sm); }
 .file-chip .remove:hover { color: var(--danger); background: #fff5f5; }
 
-audio { width: 100%; margin-top: 12px; }
+/* Reproductor de comprobacion: solo sirve para confirmar que el archivo
+   elegido es el que se cree. Sin altura, Chrome le da la suya (unos 54px) y
+   ocupa mas que el propio nombre del archivo. `min-width: 0` es lo que
+   importa de verdad: el elemento nativo trae una anchura minima propia y, si
+   no cabe en la columna, se desborda fuera de su carril de la rejilla y se
+   monta sobre la columna de al lado. */
+audio {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  margin-top: 10px;
+}
 
 /* Los ajustes solo tienen sentido cuando ya hay un audio elegido. */
 #uploadSettings { margin-top: 22px; }
@@ -505,6 +521,9 @@ audio { width: 100%; margin-top: 12px; }
   font-size: var(--t-sm);
   line-height: 1.8;
   white-space: pre-wrap;
+  /* `pre-wrap` respeta los saltos pero no parte una palabra larga: una URL o
+     un identificador en la transcripcion desbordaria el panel a lo ancho. */
+  overflow-wrap: anywhere;
   overflow-y: auto;
   resize: vertical;
 }
