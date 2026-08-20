@@ -251,6 +251,16 @@ que imprima `getBoundingClientRect()` de los elementos en un `<pre>` y usando
 Asi se localizo que una tarjeta de 593px se salia de una columna de 340: a ojo
 solo se veia "las columnas se superponen".
 
+**Para ejercitar el `app.js` real sin servidor ni sesion**, copia `src/public`
+a un temporal y carga, en este orden: un guion que sustituya `window.fetch`
+por respuestas simuladas, el `app.js` de verdad, y un tercero que dispare
+clics y `dispatchEvent` y escriba el veredicto en un `<pre>` que se lee con
+`--dump-dom`. Es lo unico que caza los fallos de estado --un aviso de error
+que no se limpia, una pestana que no cambia--, que no salen ni en las pruebas
+del servidor ni en una captura. **Antes de fiarte del comprobante, deshaz el
+arreglo en la copia y confirma que falla**: uno que pasa siempre no prueba
+nada.
+
 Si esta instalada la skill de diseno `impeccable`, su detector es util tras
 tocar el frontend:
 

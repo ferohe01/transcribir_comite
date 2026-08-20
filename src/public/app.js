@@ -278,6 +278,14 @@ function onTemplateChange() {
 
 $('templateSelect').addEventListener('change', onTemplateChange);
 
+// Al cambiar la eleccion, el fallo anterior deja de describir lo que va a
+// pasar: se referia a otro modelo o a otra plantilla.
+for (const id of ['templateSelect', 'llmModel']) {
+  $(id).addEventListener('change', () => {
+    $('resultError').hidden = true;
+  });
+}
+
 // --- Seleccion de archivo --------------------------------------------------
 
 function pickFile(file) {
@@ -763,6 +771,8 @@ function renderStats(job, transcript) {
 
 $('applyBtn').addEventListener('click', async () => {
   if (!state.transcript) return toast('Primero abre una transcripción.', 'error');
+
+  $('resultError').hidden = true;
 
   const templateId = $('templateSelect').value;
   const isCustom = templateId === '__custom__';
