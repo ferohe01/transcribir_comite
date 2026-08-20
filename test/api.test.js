@@ -411,7 +411,10 @@ test('no se sirve el codigo fuente del servidor', async () => {
 test('la interfaz se sirve en la raiz', async () => {
   const response = await fetch(`${base}/`);
   assert.equal(response.status, 200);
-  assert.match(await response.text(), /Transcripcion de audio/);
+  // La expresion acepta las dos grafias: la interfaz lleva tilde desde el
+  // rediseno, y no tiene sentido que una prueba de "se sirve el HTML" falle
+  // por como se escriba su titulo.
+  assert.match(await response.text(), /Transcripci[oó]n de audio/);
 });
 
 // --- Validacion de la subida ----------------------------------------------

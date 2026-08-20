@@ -22,6 +22,7 @@ const state = {
   jobs: [],
   currentJobId: null,
   signupEnabled: null,   // null = aun no se ha preguntado al servidor
+  historyFilter: '',     // filtro local del historial, sin ir al servidor
   transcript: null,   // { id, text, formatted }
   outputs: [],        // resultados de plantilla ya guardados para esa transcripcion
   displayed: '',      // texto que se ve en pantalla ahora mismo
@@ -48,7 +49,7 @@ async function api(path, options = {}) {
 
   if (response.status === 401 && !expectAuthError) {
     showLogin();
-    throw new Error(data.error || 'Tu sesion ha caducado. Vuelve a entrar.');
+    throw new Error(data.error || 'Tu sesión ha caducado. Vuelve a entrar.');
   }
   if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
   return data;
@@ -120,9 +121,9 @@ function setAuthMode(mode) {
   $('loginError').hidden = true;
   $('authSub').textContent = registering
     ? 'Crea tu cuenta para empezar.'
-    : 'Inicia sesion para continuar.';
-  $('authSwitchText').textContent = registering ? 'Ya tienes cuenta?' : 'No tienes cuenta?';
-  $('authSwitchBtn').textContent = registering ? 'Iniciar sesion' : 'Crear una';
+    : 'Inicia sesión para continuar.';
+  $('authSwitchText').textContent = registering ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?';
+  $('authSwitchBtn').textContent = registering ? 'Iniciar sesión' : 'Crear una';
   $(registering ? 'regEmail' : 'email').focus();
 }
 
@@ -170,7 +171,7 @@ $('registerForm').addEventListener('submit', async (event) => {
   // Se comprueba aqui y no en el servidor: el servidor no puede saber si dos
   // contrasenas distintas son una errata o dos intentos legitimos.
   if (password !== $('regPassword2').value) {
-    return showAuthError('Las dos contrasenas no coinciden.');
+    return showAuthError('Las dos contraseñas no coinciden.');
   }
 
   $('registerBtn').disabled = true;
@@ -227,12 +228,18 @@ async function loadModels() {
 }
 
 function updateAsrHint() {
+  const box = $('asrHint');
+  box.textContent = '';
   const model = state.models.asr.find((m) => m.id === $('asrModel').value);
-  if (!model) return ($('asrHint').textContent = '');
-  const cost = model.costPerMinute
-    ? ` · aprox. $${(model.costPerMinute * 60).toFixed(2)} por hora de audio`
-    : '';
-  $('asrHint').textContent = `${model.hint ?? ''}${cost}`;
+  if (!model) return;
+
+  box.append(document.createTextNode(model.hint ?? ''));
+  if (model.costPerMinute) {
+    const coste = document.createElement('span');
+    coste.className = 'cost';
+    coste.textContent = `≈ US$${(model.costPerMinute * 60).toFixed(2)} por hora de audio`;
+    box.append(coste);
+  }
 }
 
 $('asrModel').addEventListener('change', updateAsrHint);
@@ -276,8 +283,20 @@ $('templateSelect').addEventListener('change', onTemplateChange);
 function pickFile(file) {
   state.file = file;
   $('fileName').textContent = file.name;
+  // El nombre se corta con puntos suspensivos; el completo vive en el tooltip.
+  $('fileName').title = file.name;
   $('fileSize').textContent = formatBytes(file.size);
-  $('preview').src = URL.createObjectURL(file);
+  $('fileDuration').textContent = '';
+
+  const preview = $('preview');
+  // La duracion la da el propio navegador al leer la cabecera del archivo: no
+  // cuesta nada y evita esperar a que el servidor analice el audio.
+  preview.onloadedmetadata = () => {
+    if (Number.isFinite(preview.duration)) {
+      $('fileDuration').textContent = ` · ${formatDuration(preview.duration)}`;
+    }
+  };
+  preview.src = URL.createObjectURL(file);
   $('dropzone').hidden = true;
   $('filePicked').hidden = false;
   $('uploadSettings').hidden = false;
@@ -333,15 +352,15 @@ $('startBtn').addEventListener('click', async () => {
 
   try {
     const { job } = await api('/api/jobs', { method: 'POST', body: form });
-    toast('Trabajo en cola. Puedes cerrar la pestana: seguira procesandose.');
+    toast('Trabajo en cola. Puedes cerrar la pestaña: seguirá procesándose.');
     await loadHistory();
     selectJob(job.id);
     follow(job.id);
   } catch (error) {
-    toast(error.message, 'error');
+    showResultError('No se pudo iniciar la transcripción.', error.message, () => $('startBtn').click());
   } finally {
     $('startBtn').disabled = false;
-    $('startBtn').innerHTML = '<svg class="icon"><use href="#i-mic"/></svg> Transcribir';
+    $('startBtn').innerHTML = '<svg class="icon"><use href="#i-mic"/></svg> Transcribir audio';
   }
 });
 
@@ -363,11 +382,16 @@ function follow(jobId) {
 
   source.addEventListener('done', async () => {
     source.close();
-    setProgress(100, 'Completado', '');
+    setProgress(100, 'Transcripción completada', '');
+    // El visto viene del juego de iconos, no de un glifo suelto.
+    $('progressLabel').insertAdjacentHTML(
+      'afterbegin',
+      '<svg class="icon ok"><use href="#i-check"/></svg> ',
+    );
     setTimeout(() => { $('progressCard').hidden = true; }, 1500);
     await loadHistory();
     await openJob(jobId);
-    toast('Transcripcion completada.');
+    toast('Transcripción completada.');
   });
 
   source.addEventListener('error', (event) => {
@@ -375,12 +399,17 @@ function follow(jobId) {
     $('progressCard').hidden = true;
     // Un `error` sin datos es una caida de la conexion, no un fallo del
     // trabajo: el trabajo sigue vivo en el servidor.
-    let message = 'Se perdio la conexion con el servidor. El trabajo sigue en curso.';
+    let detalle = 'El trabajo sigue procesándose en el servidor.';
+    let titular = 'Se perdió la conexión con el servidor.';
     try {
-      if (event.data) message = JSON.parse(event.data).error;
-    } catch { /* mensaje por defecto */ }
-    $('resultError').textContent = message;
-    $('resultError').hidden = false;
+      if (event.data) {
+        detalle = JSON.parse(event.data).error;
+        titular = 'No se pudo completar la transcripción.';
+      }
+    } catch { /* se queda el mensaje de conexion perdida */ }
+
+    // Reintentar aqui es volver a engancharse al trabajo, que sigue vivo.
+    showResultError(titular, detalle, () => follow(jobId));
     loadHistory();
   });
 }
@@ -399,10 +428,54 @@ const stageLabel = (stage, status) =>
 
 function setProgress(percent, label, detail) {
   // scaleX y no width: animar el ancho recalcula la maquetacion en cada tick.
-  $('progressFill').style.transform = `scaleX(${Math.max(0, Math.min(100, percent)) / 100})`;
+  const acotado = Math.max(0, Math.min(100, percent));
+  $('progressFill').style.transform = `scaleX(${acotado / 100})`;
+  // Sin esto la barra es muda para un lector de pantalla: toda la espera
+  // transcurre sin que anuncie nada.
+  $('progressBar').setAttribute('aria-valuenow', String(Math.round(acotado)));
   $('progressPct').textContent = `${percent}%`;
   $('progressLabel').textContent = label;
   $('progressDetail').textContent = detail;
+}
+
+/**
+ * Muestra un fallo en el panel de resultado.
+ *
+ * El titular esta en lenguaje llano. El mensaje del servidor se conserva
+ * debajo en lugar de ocultarse, porque los de este servicio son buenos y
+ * accionables ("Comprueba que el archivo no este danado y sea un formato
+ * reconocible"); esconderlo dejaria al usuario sin saber que arreglar. El
+ * detalle tecnico completo va ademas a la consola.
+ */
+function showResultError(titular, detalle, reintentar = null) {
+  console.error(titular, detalle);
+
+  const caja = $('resultError');
+  caja.textContent = titular;
+
+  if (detalle && detalle !== titular) {
+    const linea = document.createElement('span');
+    linea.className = 'detalle';
+    linea.textContent = detalle;
+    caja.append(linea);
+  }
+
+  if (reintentar) {
+    const acciones = document.createElement('div');
+    acciones.className = 'acciones';
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'btn ghost small';
+    boton.textContent = 'Reintentar';
+    boton.addEventListener('click', () => {
+      caja.hidden = true;
+      reintentar();
+    });
+    acciones.append(boton);
+    caja.append(acciones);
+  }
+
+  caja.hidden = false;
 }
 
 // --- Historial -------------------------------------------------------------
@@ -410,19 +483,47 @@ function setProgress(percent, label, detail) {
 async function loadHistory() {
   const { jobs } = await api('/api/jobs');
   state.jobs = jobs;
+  renderHistory();
+}
+
+/**
+ * Pinta el historial ya cargado. La busqueda filtra en memoria: los trabajos
+ * ya estan aqui, asi que pedirlos otra vez al servidor solo anadiria espera.
+ */
+function renderHistory() {
+  const filtro = state.historyFilter.trim().toLowerCase();
+  const visibles = filtro
+    ? state.jobs.filter((j) => j.filename.toLowerCase().includes(filtro))
+    : state.jobs;
 
   $('historyConfirm').hidden = true;
-  $('clearHistory').hidden = jobs.length === 0;
+  $('clearHistory').hidden = state.jobs.length === 0;
+  // Buscar entre tres cosas no ayuda a nadie; el buscador aparece cuando la
+  // lista empieza a ser larga.
+  $('historySearchBox').hidden = state.jobs.length < 5;
 
   const container = $('history');
-  if (jobs.length === 0) {
-    container.innerHTML = '<p class="empty">Aun no hay transcripciones.</p>';
+  container.innerHTML = '';
+
+  if (state.jobs.length === 0) {
+    container.innerHTML = '<p class="empty">Aún no hay transcripciones.</p>';
+    return;
+  }
+  if (visibles.length === 0) {
+    container.innerHTML = '<p class="empty">Ninguna transcripción coincide con la búsqueda.</p>';
     return;
   }
 
-  container.innerHTML = '';
-  for (const job of jobs) container.appendChild(historyRow(job));
+  for (const job of visibles) container.appendChild(historyRow(job));
 }
+
+$('historySearch').addEventListener('input', (event) => {
+  state.historyFilter = event.target.value;
+  renderHistory();
+});
+
+// El punto de color no basta: quien no distingue los colores necesita leerlo.
+const ESTADO_TEXTO = { queued: 'En cola', running: 'Procesando', error: 'Error' };
 
 /** Una fila: un boton para abrir y otro para borrar, no un boton dentro de otro. */
 function historyRow(job) {
@@ -443,6 +544,13 @@ function historyRow(job) {
   open.querySelector('.when').textContent =
     `${relativeTime(job.created_at)}${job.duration_s ? ` · ${formatDuration(job.duration_s)}` : ''}`;
   open.addEventListener('click', () => openJob(job.id));
+
+  if (ESTADO_TEXTO[job.status]) {
+    const estado = document.createElement('span');
+    estado.className = `state ${job.status}`;
+    estado.textContent = ESTADO_TEXTO[job.status];
+    open.append(estado);
+  }
 
   const remove = document.createElement('button');
   remove.type = 'button';
@@ -465,14 +573,14 @@ function askDeleteJob(row, job) {
   row.className = 'job confirming';
   row.textContent =
     salidas > 0
-      ? `Se borrara la transcripcion y ${frase(salidas, 'resultado', 'resultados')} de plantilla. No se puede deshacer.`
-      : 'Se borrara esta transcripcion. No se puede deshacer.';
+      ? `Se borrará la transcripción y ${frase(salidas, 'resultado', 'resultados')} de plantilla. No se puede deshacer.`
+      : 'Se borrará esta transcripción. No se puede deshacer.';
 
   row.append(
     confirmarAcciones('Borrar', async () => {
       await api(`/api/jobs/${job.id}`, { method: 'DELETE' });
       if (state.currentJobId === job.id) resetResultPanel();
-      toast('Transcripcion borrada.');
+      toast('Transcripción borrada.');
     }),
   );
 }
@@ -483,7 +591,7 @@ $('clearHistory').addEventListener('click', () => {
 
   const bar = $('historyConfirm');
   bar.textContent =
-    `Se borraran ${frase(total, 'transcripcion', 'transcripciones')}` +
+    `Se borrarán ${frase(total, 'transcripción', 'transcripciones')}` +
     (salidas > 0 ? ` y ${frase(salidas, 'resultado', 'resultados')} de plantilla` : '') +
     '. No se puede deshacer.';
 
@@ -491,7 +599,7 @@ $('clearHistory').addEventListener('click', () => {
     confirmarAcciones('Borrar todo', async () => {
       const { deleted } = await api('/api/jobs', { method: 'DELETE' });
       resetResultPanel();
-      toast(`${frase(deleted, 'transcripcion borrada', 'transcripciones borradas')}.`);
+      toast(`${frase(deleted, 'transcripción borrada', 'transcripciones borradas')}.`);
     }),
   );
   bar.hidden = false;
@@ -534,12 +642,14 @@ function confirmarAcciones(etiqueta, accion) {
 
 /** Deja la columna derecha como al entrar, sin trabajo abierto. */
 function resetResultPanel() {
+  $('aiProgress').hidden = true;
   state.currentJobId = null;
   state.transcript = null;
   state.outputs = [];
   renderOutputs();
   setOutput('');
   $('resultTitle').textContent = 'Resultado';
+  $('resultTitle').title = '';
   $('templateBar').hidden = true;
   $('stats').hidden = true;
   $('resultNote').hidden = true;
@@ -567,6 +677,7 @@ async function openJob(jobId) {
 
   const { job, transcript } = await api(`/api/jobs/${jobId}`);
   $('resultTitle').textContent = job.filename;
+  $('resultTitle').title = job.filename;
 
   if (job.status === 'error') {
     $('resultError').textContent = job.error;
@@ -594,7 +705,7 @@ async function openJob(jobId) {
 const MOTIVO_RESPALDO = {
   RATE_LIMITED: 'el motor principal agoto su cuota',
   BLOCKED: 'el motor principal rechazo el audio por su filtro de contenido',
-  EMPTY_RESPONSE: 'el motor principal no devolvio texto',
+  EMPTY_RESPONSE: 'el motor principal no devolvió texto',
 };
 
 function renderStats(job, transcript) {
@@ -614,8 +725,8 @@ function renderStats(job, transcript) {
     $('resultNote').hidden = false;
   } else if (cached) {
     $('resultNote').textContent =
-      'Este audio ya se habia transcrito con el mismo motor, idioma y vocabulario, ' +
-      'asi que se reutilizo el texto guardado: no se volvio a transcribir ni a pagar.';
+      'Este audio ya se había transcrito con el mismo motor, idioma y vocabulario, ' +
+      'así que se reutilizó el texto guardado: no se volvió a transcribir ni a pagar.';
     $('resultNote').hidden = false;
   } else {
     $('resultNote').hidden = true;
@@ -625,8 +736,8 @@ function renderStats(job, transcript) {
   // fragmentos que contar ni velocidad que medir. Presentarlo como "0,5 s a
   // 9710x tiempo real con 0 fragmentos" parecia un fallo del pipeline.
   const cells = [
-    ['Duracion', formatDuration(job.duration_s)],
-    ['Proceso', cached ? 'Reutilizada' : job.elapsed_ms ? `${(job.elapsed_ms / 1000).toFixed(1)} s` : '—'],
+    ['Duración', formatDuration(job.duration_s)],
+    ['Tiempo de proceso', cached ? 'Reutilizada' : job.elapsed_ms ? `${(job.elapsed_ms / 1000).toFixed(1)} s` : '—'],
     ['Velocidad', cached || !speed ? '—' : `${speed.toFixed(0)}x tiempo real`],
     ['Fragmentos', cached ? '—' : job.chunk_count ?? '—'],
     ['Palabras', words.toLocaleString('es')],
@@ -647,7 +758,7 @@ function renderStats(job, transcript) {
 // --- Fase 2: aplicar plantilla --------------------------------------------
 
 $('applyBtn').addEventListener('click', async () => {
-  if (!state.transcript) return toast('Primero abre una transcripcion.', 'error');
+  if (!state.transcript) return toast('Primero abre una transcripción.', 'error');
 
   const templateId = $('templateSelect').value;
   const isCustom = templateId === '__custom__';
@@ -664,6 +775,13 @@ $('applyBtn').addEventListener('click', async () => {
   const button = $('applyBtn');
   button.disabled = true;
   button.innerHTML = '<span class="spinner"></span> Procesando…';
+
+  // La etapa 2 tiene su propio indicador: es un proceso distinto del de
+  // transcribir y conviene que se vea cual de los dos esta corriendo.
+  $('aiProgressDetail').textContent =
+    `Plantilla: ${isCustom ? 'Instrucciones propias' : templateName(templateId)} · ` +
+    `Modelo: ${llmName($('llmModel').value)}`;
+  $('aiProgress').hidden = false;
   // El texto anterior se queda hasta que llegue el primer fragmento del nuevo.
   // Vaciarlo aqui dejaba la pantalla en blanco durante toda la espera y, si la
   // llamada fallaba, se habia perdido sin haberlo generado de nuevo.
@@ -704,25 +822,26 @@ $('applyBtn').addEventListener('click', async () => {
 
         if (type === 'delta') {
           accumulated += data.text;
-          setOutput(accumulated);
+          setOutput(accumulated, { plano: true });
           $('output').scrollTop = $('output').scrollHeight;
         } else if (type === 'error') {
           throw new Error(data.error);
         }
       }
     }
-    toast('Plantilla aplicada.');
+    toast('Resultado generado.');
     // El servidor acaba de guardarla: se recarga la lista y se marca la
     // recien hecha, que es la que se esta leyendo.
     await loadOutputs(state.transcript.id);
     renderOutputs(state.outputs[0]?.id ?? null);
+    // Ya completo: ahora si se reparten las marcas de tiempo.
+    setOutput(state.displayed);
   } catch (error) {
-    toast(error.message, 'error');
-    $('resultError').textContent = error.message;
-    $('resultError').hidden = false;
+    showResultError('No se pudo generar el resultado con IA.', error.message, () => $('applyBtn').click());
   } finally {
+    $('aiProgress').hidden = true;
     button.disabled = false;
-    button.innerHTML = '<svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla';
+    button.innerHTML = '<svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla con IA';
   }
 });
 
@@ -776,36 +895,42 @@ const templateName = (id) =>
 
 const llmName = (id) => state.models.llm.find((m) => m.id === id)?.label ?? id;
 
-/** `activeId` null = mostrando la transcripcion; un numero = ese resultado. */
+/**
+ * Pestanas del documento. `activeId` null = la transcripcion original.
+ *
+ * La original es siempre la primera y nunca se sobrescribe: cada plantilla
+ * aplicada se guarda aparte, de modo que se pueda comparar el resultado con
+ * la fuente. Sin resultados todavia no hay nada que elegir y la barra sobra.
+ */
 function renderOutputs(activeId = null) {
   const box = $('results');
   box.innerHTML = '';
 
-  // Con un solo elemento no hay nada que elegir: la barra seria ruido.
   if (state.outputs.length === 0) {
     box.hidden = true;
     return;
   }
 
-  const pill = (id, titulo, detalle) => {
+  const tab = (id, titulo, detalle) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'result-pill';
-    button.setAttribute('aria-pressed', String(id === activeId));
-    button.append(titulo);
+    button.className = 'tab';
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(id === activeId));
+    button.append(document.createTextNode(titulo));
     if (detalle) {
       const meta = document.createElement('span');
       meta.className = 'meta';
-      meta.textContent = ` · ${detalle}`;
+      meta.textContent = detalle;
       button.append(meta);
     }
     button.addEventListener('click', () => showOutput(id));
     return button;
   };
 
-  box.append(pill(null, 'Transcripcion', null));
+  box.append(tab(null, 'Transcripción original', null));
   for (const out of state.outputs) {
-    box.append(pill(out.id, templateName(out.template_id), `${llmName(out.llm_model)} · ${relativeTime(out.created_at)}`));
+    box.append(tab(out.id, templateName(out.template_id), `${llmName(out.llm_model)} · ${relativeTime(out.created_at)}`));
   }
   box.hidden = false;
 }
@@ -818,12 +943,45 @@ function showOutput(id) {
 
 // --- Salida ----------------------------------------------------------------
 
-function setOutput(text) {
+function setOutput(text, { plano = false } = {}) {
   state.displayed = text;
-  $('output').textContent = text || 'El resultado aparecera aqui.';
   const has = Boolean(text);
+
+  $('output').hidden = !has;
+  $('emptyState').hidden = has;
+  if (has) {
+    // Mientras llega el texto en directo se pinta plano: repartir las marcas
+    // de tiempo en cada fragmento recibido rehace el documento entero decenas
+    // de veces por segundo.
+    if (plano) $('output').textContent = text;
+    else renderDocument(text);
+  }
+
   $('copyBtn').disabled = !has;
   $('downloadBtn').disabled = !has;
+}
+
+/**
+ * Pinta el texto apartando las marcas de tiempo del cuerpo.
+ *
+ * Se construye con nodos y no con innerHTML: esto es texto transcrito de un
+ * audio, y no hay ninguna razon para que el navegador lo interprete como
+ * marcado.
+ */
+function renderDocument(text) {
+  const out = $('output');
+  out.textContent = '';
+  for (const parte of text.split(/(\[\d{2}:\d{2}:\d{2}\])/g)) {
+    if (!parte) continue;
+    if (/^\[\d{2}:\d{2}:\d{2}\]$/.test(parte)) {
+      const marca = document.createElement('span');
+      marca.className = 'ts';
+      marca.textContent = parte;
+      out.append(marca);
+    } else {
+      out.append(document.createTextNode(parte));
+    }
+  }
 }
 
 $('copyBtn').addEventListener('click', async () => {
@@ -831,7 +989,7 @@ $('copyBtn').addEventListener('click', async () => {
     await navigator.clipboard.writeText(state.displayed);
     toast('Copiado al portapapeles.');
   } catch {
-    toast('El navegador bloqueo el portapapeles.', 'error');
+    toast('El navegador bloqueó el portapapeles.', 'error');
   }
 });
 

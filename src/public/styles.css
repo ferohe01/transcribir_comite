@@ -1,30 +1,29 @@
 /*
  * Sistema visual minimalista.
  *
- * Sustituye al degradado violeta a pantalla completa con tarjetas flotantes.
- * El violeta se conserva, pero deja de ser el fondo para pasar a ser lo unico
- * que se colorea: el boton principal, el anillo de foco, la barra de progreso
- * y el resultado seleccionado. Todo lo demas es papel, tinta y una linea de
- * 1px, de modo que el color signifique "aqui" en lugar de estar en todas
- * partes.
+ * El violeta no es el fondo: es lo unico que se colorea. Boton principal,
+ * anillo de foco, barra de progreso y pestana activa. Todo lo demas es papel,
+ * tinta y una linea de 1px, de modo que el color signifique "aqui" en lugar
+ * de estar en todas partes.
+ *
+ * La interfaz refleja dos etapas: audio -> texto (etapa 1) y texto ->
+ * documento con IA (etapa 2). Cada una tiene su tarjeta de proceso y su
+ * seccion, porque son dos cosas distintas que cuestan tiempos distintos.
  *
  * Los iconos son SVG en linea porque la politica de seguridad de contenido
  * solo permite recursos propios.
  */
 
 :root {
-  /* Un unico acento, en tres intensidades. */
   --brand: #5b5bd6;
   --brand-dark: #4a4ac4;
   --brand-deep: #3f3fa8;
   --brand-wash: #f0f0fb;
 
-  /* Tinta: tres pesos, no cinco. */
   --ink: #1c2128;
   --ink-soft: #3d4652;
-  /* 5,4:1 sobre blanco. El gris anterior (#718096) daba 4,01 y el mas claro
-     (#a0aec0) 2,26, por debajo del minimo legible en textos pequenos, que es
-     justo donde se usaban. */
+  /* 5,4:1 sobre blanco. El gris anterior daba 4,01 y se usaba en textos
+     pequenos, que es justo donde no llega. */
   --muted: #5f6b7a;
 
   --line: #e4e7ec;
@@ -34,16 +33,23 @@
   --surface-alt: #f7f8fa;
 
   --ok: #2f855a;
+  --ok-wash: #edf7f1;
   --warn: #b7791f;
+  /* El ambar sirve para un punto de 7px, pero sobre su propio fondo claro da
+     3,38:1 y la etiqueta "Procesando" es texto pequeno. */
+  --warn-ink: #8a5a00;
+  --warn-wash: #fdf6e7;
   --danger: #c53030;
+  --danger-wash: #fff5f5;
 
-  /* Escala tipografica con saltos reales: antes casi todo caia entre 0,72rem
-     y 1rem, asi que nada destacaba sobre nada. */
+  /* Escala tipografica con saltos reales. */
   --t-xs: 0.75rem;
   --t-sm: 0.8125rem;
   --t-base: 0.9375rem;
   --t-lg: 1.0625rem;
   --t-xl: 1.375rem;
+  /* Cuerpo del documento: el resultado es prosa para leer, no un listado. */
+  --t-doc: 1rem;
 
   --radius: 10px;
   --radius-sm: 7px;
@@ -82,8 +88,7 @@ input, select, textarea { font: inherit; color: inherit; }
   border: 0;
 }
 
-/* Un unico anillo de foco para toda la aplicacion. `:focus-visible` solo se
-   dibuja cuando el foco viene del teclado, asi que no ensucia el clic. */
+/* Un unico anillo de foco para toda la aplicacion. */
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
@@ -125,15 +130,13 @@ input, select, textarea { font: inherit; color: inherit; }
   font-size: var(--t-sm);
 }
 
-.inline-btn {
-  color: var(--brand);
-  font-weight: 600;
-  font-size: inherit;
-}
+.inline-btn { color: var(--brand); font-weight: 600; font-size: inherit; }
 .inline-btn:hover { color: var(--brand-deep); text-decoration: underline; }
 
 /* --- Estructura ----------------------------------------------------------- */
 
+/* La barra superior va a sangre y el contenido centrado debajo, de ahi que la
+   cascara y el contenedor sean dos elementos distintos. */
 .topbar {
   display: flex;
   align-items: center;
@@ -145,11 +148,7 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 .topbar .icon { color: var(--brand); }
-.topbar h1 {
-  font-size: var(--t-base);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
+.topbar h1 { font-size: var(--t-base); font-weight: 600; letter-spacing: -0.01em; }
 .topbar .spacer { flex: 1; }
 .topbar .who { font-size: var(--t-sm); color: var(--muted); }
 
@@ -166,22 +165,16 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* Cada columna separa sus tarjetas con `gap` y no con el margen del hermano
-   adyacente. La tarjeta de progreso empieza oculta, y `.card + .card` se
-   aplicaba igual: la columna derecha arrancaba 20px mas abajo que la
-   izquierda aunque no hubiera nada visible que la empujara. Un elemento con
-   `display: none` no es un item de la rejilla, asi que no genera separacion. */
+   adyacente: las tarjetas de proceso empiezan ocultas, y `.card + .card` se
+   aplicaba igual, descuadrando las dos columnas. Un elemento con
+   `display: none` no es un item de la rejilla. */
 .layout > div {
   display: grid;
   gap: 20px;
   align-content: start;
-  /* Sin esto, un hijo que no quepa ensancha la columna o se sale de ella. El
-     valor por defecto de un item de rejilla es `auto`, que se niega a encoger
-     por debajo del contenido. */
   min-width: 0;
 }
 
-/* Las secciones ya no flotan sobre un degradado: papel plano delimitado por
-   una linea, que es todo lo que hace falta para agruparlas. */
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -190,9 +183,8 @@ input, select, textarea { font: inherit; color: inherit; }
   /* Sin esto la tarjeta se sale de su columna. Es un item de rejilla, y el
      valor por defecto `min-width: auto` le impide encoger por debajo del
      ancho minimo de su contenido; el nombre del archivo va con
-     `white-space: nowrap`, asi que ese minimo es el nombre entero. Con un
-     nombre largo la tarjeta llegaba a 593px dentro de una columna de 340 y se
-     montaba sobre la columna derecha. Medido en Chrome: 593 -> 340. */
+     `white-space: nowrap`, asi que ese minimo es el nombre entero. Medido en
+     Chrome: 593 -> 340. */
   min-width: 0;
 }
 
@@ -203,6 +195,23 @@ input, select, textarea { font: inherit; color: inherit; }
   color: var(--ink);
   margin-bottom: 20px;
 }
+
+/* Encabezado de grupo dentro de una tarjeta: separa "Configuracion" o
+   "Procesar con IA" del bloque anterior sin abrir otra tarjeta. */
+.group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding-top: 20px;
+  margin-bottom: 16px;
+  border-top: 1px solid var(--line);
+}
+.group-title .icon { color: var(--brand); }
 
 /* --- Formularios ---------------------------------------------------------- */
 
@@ -237,9 +246,10 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .field textarea { resize: vertical; min-height: 74px; font-family: inherit; }
 .field .hint { font-size: var(--t-xs); color: var(--muted); margin-top: 6px; }
+.field .hint .cost { display: block; font-variant-numeric: tabular-nums; }
 
 .row { display: flex; gap: 14px; }
-.row > * { flex: 1; }
+.row > * { flex: 1; min-width: 0; }
 
 .btn {
   display: inline-flex;
@@ -264,6 +274,8 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .btn.ghost:hover:not(:disabled) { background: var(--surface-alt); border-color: var(--muted); }
 .btn.small { padding: 7px 12px; font-size: var(--t-xs); }
+.btn.danger { background: var(--danger); }
+.btn.danger:hover:not(:disabled) { background: #9b2226; }
 
 /* --- Zona de subida ------------------------------------------------------- */
 
@@ -308,6 +320,7 @@ input, select, textarea { font: inherit; color: inherit; }
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
 }
+.file-chip .file-icon { width: 20px; height: 20px; color: var(--muted); }
 .file-chip .meta { flex: 1; min-width: 0; }
 .file-chip .name {
   display: block;
@@ -319,14 +332,11 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .file-chip .size { font-size: var(--t-xs); color: var(--muted); }
 .file-chip .remove { color: var(--muted); padding: 6px; border-radius: var(--radius-sm); }
-.file-chip .remove:hover { color: var(--danger); background: #fff5f5; }
+.file-chip .remove:hover { color: var(--danger); background: var(--danger-wash); }
 
 /* Reproductor de comprobacion: solo sirve para confirmar que el archivo
    elegido es el que se cree. Sin altura, Chrome le da la suya (unos 54px) y
-   ocupa mas que el propio nombre del archivo. `min-width: 0` es lo que
-   importa de verdad: el elemento nativo trae una anchura minima propia y, si
-   no cabe en la columna, se desborda fuera de su carril de la rejilla y se
-   monta sobre la columna de al lado. */
+   ocupa mas que el propio nombre del archivo. */
 audio {
   display: block;
   width: 100%;
@@ -335,18 +345,29 @@ audio {
   margin-top: 10px;
 }
 
-/* Los ajustes solo tienen sentido cuando ya hay un audio elegido. */
-#uploadSettings { margin-top: 22px; }
+/* --- Proceso (las dos etapas) --------------------------------------------- */
 
-/* --- Progreso ------------------------------------------------------------- */
+.stage-head { margin-bottom: 14px; }
+
+.stage-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--brand-wash);
+  color: var(--brand-deep);
+  font-size: var(--t-xs);
+  font-weight: 600;
+}
 
 .progress-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: 12px;
   margin-bottom: 10px;
 }
 .progress-head .label { font-weight: 600; font-size: var(--t-sm); }
+.progress-head .label .icon.ok { color: var(--ok); }
 .progress-head .pct {
   font-weight: 600;
   font-size: var(--t-sm);
@@ -356,7 +377,7 @@ audio {
 
 .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
 /* Se escala en lugar de animar `width`: mover una propiedad de maquetacion en
-   cada tick de progreso obliga al navegador a recalcular el layout entero. */
+   cada tick de progreso obliga a recalcular el layout entero. */
 .bar > div {
   height: 100%;
   width: 100%;
@@ -364,6 +385,18 @@ audio {
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.4s ease;
+}
+
+/* La etapa 2 no devuelve porcentaje: el modelo escribe hasta que termina.
+   Una barra que va y viene dice "esto sigue vivo" sin inventar una cifra. */
+.bar.indeterminate > div {
+  width: 40%;
+  transform: none;
+  animation: vaiven 1.4s ease-in-out infinite;
+}
+@keyframes vaiven {
+  0% { margin-left: -40%; }
+  100% { margin-left: 100%; }
 }
 
 .progress-detail { font-size: var(--t-xs); color: var(--muted); margin-top: 10px; }
@@ -374,25 +407,45 @@ audio {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .card-head h2 { flex: 1; margin-bottom: 0; }
 
 .link-danger { color: var(--muted); font-size: var(--t-xs); }
 .link-danger:hover { color: var(--danger); text-decoration: underline; }
 
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+.search:focus-within { border-color: var(--brand); }
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 9px 0;
+  background: none;
+  font-size: var(--t-sm);
+}
+.search input:focus { outline: none; }
+.search .icon { width: 15px; height: 15px; }
+
 .confirm-bar {
   padding: 12px;
   margin-bottom: 12px;
   border: 1px solid #f5c2c2;
   border-radius: var(--radius-sm);
-  background: #fff5f5;
+  background: var(--danger-wash);
   font-size: var(--t-xs);
   color: #9b2226;
 }
 .confirm-bar .acciones { display: flex; gap: 8px; margin-top: 10px; }
-.btn.danger { background: var(--danger); }
-.btn.danger:hover:not(:disabled) { background: #9b2226; }
 
 .history { display: flex; flex-direction: column; max-height: 440px; overflow-y: auto; }
 
@@ -418,28 +471,6 @@ audio {
   cursor: pointer;
 }
 
-/* Aparece al pasar por encima o al llegar con el tabulador; no compite con el
-   nombre del archivo cuando no hace falta. */
-.job-delete {
-  flex: none;
-  padding: 6px;
-  margin-right: 2px;
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  opacity: 0;
-  transition: opacity 0.12s, color 0.12s, background 0.12s;
-}
-.job:hover .job-delete,
-.job-delete:focus-visible { opacity: 1; }
-.job-delete:hover { color: var(--danger); background: #fff5f5; }
-
-.job.confirming {
-  display: block;
-  padding: 12px 4px;
-  font-size: var(--t-xs);
-  color: #9b2226;
-}
-
 .job .meta { flex: 1; min-width: 0; }
 .job .name {
   display: block;
@@ -451,13 +482,45 @@ audio {
 }
 .job .when { font-size: var(--t-xs); color: var(--muted); }
 
+/* El estado no se fia solo del color: el punto va acompanado de su palabra. */
 .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .dot.queued { background: var(--muted); }
 .dot.running { background: var(--warn); animation: pulse 1.2s infinite; }
 .dot.done { background: var(--ok); }
 .dot.error { background: var(--danger); }
 
+.state {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  flex: none;
+}
+.state.queued { background: var(--surface-alt); color: var(--muted); }
+.state.running { background: var(--warn-wash); color: var(--warn-ink); }
+.state.error { background: var(--danger-wash); color: var(--danger); }
+
 @keyframes pulse { 50% { opacity: 0.3; } }
+
+.job-delete {
+  flex: none;
+  padding: 6px;
+  margin-right: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s, background 0.12s;
+}
+.job:hover .job-delete,
+.job-delete:focus-visible { opacity: 1; }
+.job-delete:hover { color: var(--danger); background: var(--danger-wash); }
+
+.job.confirming {
+  display: block;
+  padding: 12px 4px;
+  font-size: var(--t-xs);
+  color: #9b2226;
+}
 
 .empty { color: var(--muted); font-size: var(--t-sm); padding: 20px 0; }
 
@@ -465,104 +528,129 @@ audio {
 
 .result-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 14px;
   flex-wrap: wrap;
   margin-bottom: 18px;
 }
-/* El nombre del archivo es lo que identifica la pantalla: pesa mas que el
-   titulo de una seccion, no lo mismo. */
+/* El nombre del archivo identifica la pantalla: pesa mas que el titulo de una
+   seccion. Se corta a dos lineas y el nombre entero vive en el `title`. */
 .result-head h2 {
-  margin: 0;
   flex: 1;
-  min-width: 0;
+  min-width: 220px;
+  margin-bottom: 0;
   font-size: var(--t-xl);
   letter-spacing: -0.02em;
+  line-height: 1.3;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+.result-actions { display: flex; gap: 8px; flex: none; }
 
-.template-actions {
-  display: flex;
-  gap: 10px;
-  margin: 18px 0 22px;
+.stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 18px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
 }
+.stats div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+/* Sin versalitas ni interletraje: "TIEMPO DE PROCESO" no cabe en una linea
+   de la rejilla de seis columnas y partia en dos, dejando su valor un renglon
+   por debajo de los otros cinco. */
+.stats .k { color: var(--muted); font-size: var(--t-xs); }
+.stats .v { font-weight: 600; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
 
-/* Selector de resultados ya generados. Son variantes de un mismo objeto, no
-   navegacion, de ahi el grupo de botones de alternancia y no una lista. */
-.results {
+.template-actions { display: flex; gap: 10px; margin: 18px 0 4px; }
+
+/* Pestanas del documento. La primera es siempre la transcripcion original:
+   nunca se sobrescribe, se compara. */
+.tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 4px;
+  margin: 22px 0 0;
+  border-bottom: 1px solid var(--line);
 }
 
-.result-pill {
-  padding: 6px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--ink-soft);
-  font-size: var(--t-xs);
-  line-height: 1.4;
+.tab {
+  padding: 9px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-size: var(--t-sm);
+  font-weight: 600;
   text-align: left;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
 }
-.result-pill:hover { border-color: var(--muted); background: var(--surface-alt); }
-/* Fondo --brand-deep y no --brand: este texto es pequeno y necesita los
-   4,5:1 que el acento claro no alcanza sobre blanco. */
-.result-pill[aria-pressed="true"] {
-  background: var(--brand-deep);
-  border-color: var(--brand-deep);
-  color: #ffffff;
-}
-.result-pill .meta { opacity: 0.75; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--brand-deep); border-bottom-color: var(--brand); }
+.tab .meta { display: block; font-weight: 400; font-size: var(--t-xs); opacity: 0.8; }
 
+/* El resultado es un documento, no un listado de codigo: se lee, se copia y a
+   veces se imprime. */
 .output {
   width: 100%;
   min-height: 440px;
-  padding: 20px 22px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface-alt);
-  font-family: 'Cascadia Code', 'Consolas', monospace;
-  font-size: var(--t-sm);
-  line-height: 1.8;
+  max-height: 70vh;
+  padding: 28px 32px;
+  background: var(--surface);
+  font-size: var(--t-doc);
+  line-height: 1.75;
+  color: var(--ink);
   white-space: pre-wrap;
-  /* `pre-wrap` respeta los saltos pero no parte una palabra larga: una URL o
-     un identificador en la transcripcion desbordaria el panel a lo ancho. */
+  /* `pre-wrap` respeta los saltos pero no parte una palabra larga: una URL en
+     la transcripcion desbordaria el panel a lo ancho. */
   overflow-wrap: anywhere;
   overflow-y: auto;
   resize: vertical;
 }
 
-.stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  padding: 0 0 16px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 18px;
-}
-.stats div { display: flex; flex-direction: column; gap: 2px; }
-.stats .k {
-  color: var(--muted);
+/* Las marcas de tiempo son referencia, no prosa: se apartan sin estorbar. */
+.output .ts {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
   font-size: var(--t-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--muted);
 }
-.stats .v { font-weight: 600; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 380px;
+  padding: 40px 24px;
+  text-align: center;
+}
+.empty-state .icon { width: 30px; height: 30px; color: var(--line-strong); margin-bottom: 6px; }
+.empty-state strong { font-size: var(--t-base); font-weight: 600; }
+.empty-state span { font-size: var(--t-sm); color: var(--muted); max-width: 42ch; }
 
 /* --- Avisos --------------------------------------------------------------- */
 
 .alert {
-  padding: 11px 14px;
+  padding: 12px 14px;
   border: 1px solid;
   border-radius: var(--radius-sm);
   font-size: var(--t-sm);
   margin-bottom: 16px;
 }
-.alert.error { background: #fff5f5; border-color: #f5c2c2; color: #9b2226; }
+.alert.error { background: var(--danger-wash); border-color: #f5c2c2; color: #9b2226; }
 .alert.info { background: var(--brand-wash); border-color: #cdcdf2; color: var(--brand-deep); }
+.alert .acciones { display: flex; gap: 8px; margin-top: 10px; }
+.alert .detalle {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--t-xs);
+  opacity: 0.8;
+}
 
 .toast {
   position: fixed;
@@ -604,13 +692,25 @@ audio {
   }
 }
 
+/* --- Adaptacion ----------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
   .app { padding: 20px 16px 40px; }
   .topbar { padding: 0 16px; }
   .card { padding: 20px; }
+  .output { padding: 22px 20px; }
 }
 
 @media (max-width: 640px) {
   .row { flex-direction: column; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .result-actions { width: 100%; }
+  .result-actions .btn { flex: 1; }
+  .topbar .who { display: none; }
 }
