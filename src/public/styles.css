@@ -589,9 +589,32 @@ audio {
   margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
 }
+.tab { font-weight: 500; }
 .tab:hover { color: var(--ink); }
-.tab[aria-selected="true"] { color: var(--brand-deep); border-bottom-color: var(--brand); }
+.tab[aria-selected="true"] {
+  color: var(--brand-deep);
+  font-weight: 600;
+  border-bottom-color: var(--brand);
+}
 .tab .meta { display: block; font-weight: 400; font-size: var(--t-xs); opacity: 0.8; }
+
+/* La pestana provisional: existe mientras se genera y desaparece al terminar.
+   Deja ver que hay algo en marcha sin borrar lo que ya se estaba leyendo. */
+.tab.generando { color: var(--brand-deep); }
+/* El indicador va debajo del titulo, como los metadatos de las demas
+   pestanas: en linea quedaba pegado al nombre y rompia la columna. */
+.tab.generando .meta { display: block; }
+.tab.generando .spinner { margin-right: 6px; vertical-align: -1px; }
+
+.spinner.dim {
+  border-color: rgba(95, 107, 122, 0.25);
+  border-top-color: var(--muted);
+  width: 10px;
+  height: 10px;
+}
+
+/* Aviso de que lo que se ve sigue siendo valido pese al fallo. */
+.alert .conserva { display: block; margin-top: 6px; font-size: var(--t-xs); }
 
 /* El resultado es un documento, no un listado de codigo: se lee, se copia y a
    veces se imprime. */
@@ -601,6 +624,7 @@ audio {
   max-height: 70vh;
   padding: 28px 32px;
   background: var(--surface);
+  max-width: 76ch;
   font-size: var(--t-doc);
   line-height: 1.75;
   color: var(--ink);

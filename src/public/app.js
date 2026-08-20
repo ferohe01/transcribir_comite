@@ -23,6 +23,15 @@ const state = {
   currentJobId: null,
   signupEnabled: null,   // null = aun no se ha preguntado al servidor
   historyFilter: '',     // filtro local del historial, sin ir al servidor
+  tabActiva: null,       // null = transcripcion original; un numero = ese resultado
+  ia: {
+    // Una sola fuente de verdad para la etapa 2. Sin esto convivian en
+    // pantalla un "Procesando…" y un resultado ya listo.
+    estado: 'idle',      // idle | processing | success | error
+    ejecucion: 0,        // numero de la ejecucion viva; las anteriores caducan
+    abort: null,         // AbortController de la peticion en curso
+    provisional: null,   // { titulo, modelo, texto } mientras se genera
+  },
   transcript: null,   // { id, text, formatted }
   outputs: [],        // resultados de plantilla ya guardados para esa transcripcion
   displayed: '',      // texto que se ve en pantalla ahora mismo
@@ -341,6 +350,10 @@ $('removeFile').addEventListener('click', () => {
   $('filePicked').hidden = true;
   $('uploadSettings').hidden = true;
   $('startBtn').disabled = true;
+  // Solo lo transitorio: quitar el archivo que ibas a subir no deberia
+  // borrarte de la pantalla la transcripcion que estas leyendo.
+  $('resultError').hidden = true;
+  $('progressCard').hidden = true;
 });
 
 // --- Lanzar una transcripcion ---------------------------------------------
@@ -356,7 +369,10 @@ $('startBtn').addEventListener('click', async () => {
 
   $('startBtn').disabled = true;
   $('startBtn').innerHTML = '<span class="spinner"></span> Subiendo…';
-  $('resultError').hidden = true;
+  // La sesion visual arranca de cero: metricas, pestanas, resultados y
+  // estados de la transcripcion anterior no pintan nada aqui. El historial,
+  // que es lo persistente, no se toca.
+  resetResultPanel();
 
   try {
     const { job } = await api('/api/jobs', { method: 'POST', body: form });
@@ -455,7 +471,7 @@ function setProgress(percent, label, detail) {
  * reconocible"); esconderlo dejaria al usuario sin saber que arreglar. El
  * detalle tecnico completo va ademas a la consola.
  */
-function showResultError(titular, detalle, reintentar = null) {
+function showResultError(titular, detalle, reintentar = null, conserva = null) {
   console.error(titular, detalle);
 
   const caja = $('resultError');
@@ -470,6 +486,13 @@ function showResultError(titular, detalle, reintentar = null) {
     linea.className = 'detalle';
     linea.textContent = detalle;
     caja.append(linea);
+  }
+
+  if (conserva) {
+    const nota = document.createElement('span');
+    nota.className = 'conserva';
+    nota.textContent = conserva;
+    caja.append(nota);
   }
 
   if (reintentar) {
@@ -654,8 +677,10 @@ function confirmarAcciones(etiqueta, accion) {
 
 /** Deja la columna derecha como al entrar, sin trabajo abierto. */
 function resetResultPanel() {
-  $('aiProgress').hidden = true;
+  cancelarIA();
+  $('progressCard').hidden = true;
   state.currentJobId = null;
+  state.tabActiva = null;
   state.transcript = null;
   state.outputs = [];
   renderOutputs();
@@ -680,11 +705,13 @@ function selectJob(jobId) {
 
 async function openJob(jobId) {
   selectJob(jobId);
+  // Lo que estuviera generandose es de la transcripcion anterior: se cancela
+  // para que su respuesta no aparezca sobre esta.
+  cancelarIA();
   $('resultError').hidden = true;
   $('resultNote').hidden = true;
-  // Los resultados son de la transcripcion anterior: fuera hasta saber que
-  // tiene esta.
   state.outputs = [];
+  state.tabActiva = null;
   renderOutputs();
 
   const { job, transcript } = await api(`/api/jobs/${jobId}`);
@@ -708,6 +735,7 @@ async function openJob(jobId) {
   }
 
   state.transcript = transcript;
+  state.tabActiva = null;
   setOutput(transcript?.formatted || transcript?.text || '');
   $('templateBar').hidden = false;
   renderStats(job, transcript);
@@ -769,10 +797,10 @@ function renderStats(job, transcript) {
 
 // --- Fase 2: aplicar plantilla --------------------------------------------
 
-$('applyBtn').addEventListener('click', async () => {
-  if (!state.transcript) return toast('Primero abre una transcripción.', 'error');
+$('applyBtn').addEventListener('click', () => aplicarPlantilla());
 
-  $('resultError').hidden = true;
+async function aplicarPlantilla() {
+  if (!state.transcript) return toast('Primero abre una transcripción.', 'error');
 
   const templateId = $('templateSelect').value;
   const isCustom = templateId === '__custom__';
@@ -781,30 +809,32 @@ $('applyBtn').addEventListener('click', async () => {
   if (isCustom && !customPrompt) return toast('Escribe las instrucciones.', 'error');
 
   // La plantilla literal no llama a ningun modelo: es el texto tal cual.
-  if (templateId === 'literal') {
-    setOutput(state.transcript.formatted || state.transcript.text);
-    return;
-  }
+  if (templateId === 'literal') return showOutput(null);
 
-  const button = $('applyBtn');
-  button.disabled = true;
-  button.innerHTML = '<span class="spinner"></span> Procesando…';
+  // Empezar una ejecucion caduca la anterior. Si su respuesta llega tarde, se
+  // descarta comparando el numero en vez de pisar este resultado.
+  cancelarIA();
+  const ejecucion = state.ia.ejecucion;
+  const abort = new AbortController();
+  state.ia.abort = abort;
+  const vigente = () => ejecucion === state.ia.ejecucion;
 
-  // La etapa 2 tiene su propio indicador: es un proceso distinto del de
-  // transcribir y conviene que se vea cual de los dos esta corriendo.
-  $('aiProgressDetail').textContent =
-    `Plantilla: ${isCustom ? 'Instrucciones propias' : templateName(templateId)} · ` +
-    `Modelo: ${llmName($('llmModel').value)}`;
-  $('aiProgress').hidden = false;
-  // El texto anterior se queda hasta que llegue el primer fragmento del nuevo.
-  // Vaciarlo aqui dejaba la pantalla en blanco durante toda la espera y, si la
-  // llamada fallaba, se habia perdido sin haberlo generado de nuevo.
+  const titulo = isCustom ? 'Instrucciones propias' : templateName(templateId);
+  const modelo = llmName($('llmModel').value);
+  state.ia.provisional = { titulo, modelo, texto: '' };
+
+  setEstadoIA(IA.PROCESANDO, { detalle: `Plantilla: ${titulo} · Modelo: ${modelo}` });
+  // Se anade la pestana provisional SIN cambiar de pestana: lo que el usuario
+  // estuviera leyendo --la transcripcion o un resultado anterior-- sigue en
+  // pantalla hasta que lo nuevo este listo.
+  renderOutputs(state.tabActiva);
 
   try {
     const response = await fetch(`/api/transcripts/${state.transcript.id}/apply`, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
+      signal: abort.signal,
       body: JSON.stringify({
         templateId: isCustom ? 'personalizada' : templateId,
         customPrompt: customPrompt ?? templatePromptFor(templateId),
@@ -814,17 +844,18 @@ $('applyBtn').addEventListener('click', async () => {
 
     if (!response.ok) throw new Error((await response.json()).error ?? 'Error al aplicar la plantilla');
 
-    // El texto se pinta segun llega, en lugar de esperar a tenerlo entero.
+    // El texto se acumula en la pestana provisional; solo se pinta si es la
+    // que se esta mirando.
     let buffer = '';
-    let accumulated = '';
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      if (!vigente()) return;
 
+      buffer += decoder.decode(value, { stream: true });
       const events = buffer.split('\n\n');
       buffer = events.pop() ?? '';
 
@@ -835,29 +866,46 @@ $('applyBtn').addEventListener('click', async () => {
         const data = JSON.parse(payload);
 
         if (type === 'delta') {
-          accumulated += data.text;
-          setOutput(accumulated, { plano: true });
-          $('output').scrollTop = $('output').scrollHeight;
+          state.ia.provisional.texto += data.text;
+          if (state.tabActiva === PROVISIONAL) {
+            setOutput(state.ia.provisional.texto, { plano: true });
+            $('output').scrollTop = $('output').scrollHeight;
+          }
         } else if (type === 'error') {
           throw new Error(data.error);
         }
       }
     }
-    toast('Resultado generado.');
-    // El servidor acaba de guardarla: se recarga la lista y se marca la
-    // recien hecha, que es la que se esta leyendo.
+
+    if (!vigente()) return;
+
+    // Guardado en el servidor: se recarga la lista, se deja la nueva como
+    // activa y se retira la provisional.
+    state.ia.provisional = null;
     await loadOutputs(state.transcript.id);
-    renderOutputs(state.outputs[0]?.id ?? null);
-    // Ya completo: ahora si se reparten las marcas de tiempo.
-    setOutput(state.displayed);
+    if (!vigente()) return;
+
+    setEstadoIA(IA.LISTA);
+    showOutput(state.outputs[0]?.id ?? null);
+    toast('Resultado generado.');
   } catch (error) {
-    showResultError('No se pudo generar el resultado con IA.', error.message, () => $('applyBtn').click());
-  } finally {
-    $('aiProgress').hidden = true;
-    button.disabled = false;
-    button.innerHTML = '<svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla con IA';
+    // Cancelada a proposito (otra ejecucion, o cambio de trabajo): sin ruido.
+    if (abort.signal.aborted || !vigente()) return;
+
+    state.ia.provisional = null;
+    setEstadoIA(IA.FALLIDA);
+    // Un fallo no destruye lo que ya habia: se vuelve a la pestana que estaba
+    // abierta y se dice que sigue siendo valida.
+    renderOutputs(state.tabActiva);
+    setOutput(textoDePestana(state.tabActiva));
+    showResultError(
+      'No se pudo generar el resultado con IA.',
+      error.message,
+      () => aplicarPlantilla(),
+      state.outputs.length > 0 ? 'Se mantiene visible el último resultado generado correctamente.' : null,
+    );
   }
-});
+}
 
 // Para las plantillas propias el prompt lo tiene el cliente; para las
 // integradas lo resuelve el servidor a partir del identificador.
@@ -878,6 +926,64 @@ $('saveTemplateBtn').addEventListener('click', async () => {
     toast(error.message, 'error');
   }
 });
+
+// --- Estados de la etapa 2 -------------------------------------------------
+
+const IA = { INACTIVA: 'idle', PROCESANDO: 'processing', LISTA: 'success', FALLIDA: 'error' };
+
+/** Identificador de la pestana que solo existe mientras se genera. */
+const PROVISIONAL = '__generando__';
+
+/**
+ * Unico sitio donde se decide que se ve durante la etapa 2.
+ *
+ * Repartir esto entre el manejador del boton y sus `catch` y `finally` era lo
+ * que dejaba estados contradictorios: la barra de progreso terminada encima de
+ * un resultado, o un error de una ejecucion vieja junto al texto de la nueva.
+ */
+function setEstadoIA(estado, { detalle = null } = {}) {
+  state.ia.estado = estado;
+
+  const procesando = estado === IA.PROCESANDO;
+  $('applyBtn').disabled = procesando;
+  $('applyBtn').innerHTML = procesando
+    ? '<span class="spinner"></span> Procesando…'
+    : '<svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla con IA';
+
+  // La tarjeta de etapa 2 solo existe mientras trabaja y un momento al
+  // terminar; nunca se queda una barra completada ocupando sitio.
+  $('aiProgress').hidden = estado !== IA.PROCESANDO && estado !== IA.LISTA;
+  $('aiProgressBar').hidden = estado !== IA.PROCESANDO;
+  $('aiProgressLabel').innerHTML = procesando
+    ? 'Procesando con IA…'
+    : '<svg class="icon ok"><use href="#i-check"/></svg> Resultado generado';
+  if (detalle !== null) $('aiProgressDetail').textContent = detalle;
+
+  // El error pertenece a una ejecucion concreta: al entrar en cualquier otro
+  // estado deja de venir a cuento.
+  if (estado !== IA.FALLIDA) $('resultError').hidden = true;
+
+  clearTimeout(setEstadoIA.temporizador);
+  if (estado === IA.LISTA) {
+    setEstadoIA.temporizador = setTimeout(() => {
+      if (state.ia.estado === IA.LISTA) setEstadoIA(IA.INACTIVA);
+    }, 2500);
+  }
+}
+
+/**
+ * Da por caducada cualquier generacion en curso.
+ *
+ * Subir el numero de ejecucion es lo que impide que una respuesta lenta pise
+ * un resultado mas reciente: al volver, comprueba su numero y se descarta.
+ */
+function cancelarIA() {
+  state.ia.ejecucion += 1;
+  state.ia.abort?.abort();
+  state.ia.abort = null;
+  state.ia.provisional = null;
+  setEstadoIA(IA.INACTIVA);
+}
 
 // --- Resultados guardados --------------------------------------------------
 
@@ -920,7 +1026,7 @@ function renderOutputs(activeId = null) {
   const box = $('results');
   box.innerHTML = '';
 
-  if (state.outputs.length === 0) {
+  if (state.outputs.length === 0 && !state.ia.provisional) {
     box.hidden = true;
     return;
   }
@@ -946,13 +1052,37 @@ function renderOutputs(activeId = null) {
   for (const out of state.outputs) {
     box.append(tab(out.id, templateName(out.template_id), `${llmName(out.llm_model)} · ${relativeTime(out.created_at)}`));
   }
+
+  // Mientras se genera, su pestana se anade al final con un indicador. El
+  // contenido que se estuviera leyendo no se toca: quien quiera ver el texto
+  // segun llega, entra aqui.
+  if (state.ia.provisional) {
+    const pendiente = tab(PROVISIONAL, state.ia.provisional.titulo, null);
+    pendiente.classList.add('generando');
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.innerHTML = '<span class="spinner dim"></span>';
+    meta.append(document.createTextNode(' Generando nueva versión…'));
+    pendiente.append(meta);
+    box.append(pendiente);
+  }
+
   box.hidden = false;
 }
 
-function showOutput(id) {
+/** El texto que le toca a cada pestana. */
+function textoDePestana(id) {
+  if (id === PROVISIONAL) return state.ia.provisional?.texto ?? '';
   const out = state.outputs.find((o) => o.id === id);
-  setOutput(out ? out.text : state.transcript?.formatted || state.transcript?.text || '');
+  return out ? out.text : state.transcript?.formatted || state.transcript?.text || '';
+}
+
+function showOutput(id) {
+  state.tabActiva = id;
+  setOutput(textoDePestana(id));
   renderOutputs(id);
+  // Cada pestana se empieza a leer por arriba.
+  $('output').scrollTop = 0;
 }
 
 // --- Salida ----------------------------------------------------------------

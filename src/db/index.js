@@ -260,7 +260,9 @@ export const outputs = {
   },
   listForTranscript(transcriptId) {
     return getDb()
-      .prepare('SELECT * FROM outputs WHERE transcript_id = ? ORDER BY created_at DESC')
+      // El desempate por id importa: `created_at` tiene granularidad de
+      // segundo, y de el depende cual se considera "la mas reciente".
+      .prepare('SELECT * FROM outputs WHERE transcript_id = ? ORDER BY created_at DESC, id DESC')
       .all(transcriptId);
   },
 };
