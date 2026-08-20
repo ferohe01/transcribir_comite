@@ -202,6 +202,17 @@ docker compose exec app npm run create-user -- persona@empresa.com
 docker compose exec app npm run create-user -- persona@empresa.com --password "una-contrasena-larga"
 ```
 
+Para dar de baja a alguien:
+
+```bash
+docker compose exec app npm run delete-user -- persona@empresa.com
+```
+
+Ensenia primero cuantos trabajos, transcripciones, documentos generados y
+plantillas propias se van a perder, y pide escribir el correo para confirmar.
+Con `--si` no pregunta. **La cascada alcanza los documentos generados con IA**,
+que costaron dinero: exportalos antes si hacen falta.
+
 Si prefieres que cada uno se cree la cuenta, pon un codigo de invitacion en el
 `.env` y reinicia:
 

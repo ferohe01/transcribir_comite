@@ -12,6 +12,7 @@
     "dev": "node --watch src/server.js",
     "test": "node --test test/*.test.js",
     "create-user": "node src/scripts/create-user.js",
+    "delete-user": "node src/scripts/delete-user.js",
     "check-models": "node src/scripts/check-models.js",
     "transcribe": "node src/scripts/transcribe-cli.js"
   },

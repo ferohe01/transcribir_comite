@@ -99,6 +99,7 @@ el acceso no esta abierto de par en par. Hay dos vias de alta:
 | `npm run worker` | Worker independiente (solo con Redis) |
 | `npm test` | Pruebas automaticas, sin red |
 | `npm run create-user -- correo@ejemplo.com [--admin]` | Da de alta un usuario |
+| `npm run delete-user -- correo@ejemplo.com` | Da de baja un usuario y todo lo suyo |
 | `npm run check-models` | Verifica que los modelos del catalogo siguen existiendo |
 | `npm run transcribe -- audio.mp3 [--model groq-whisper-turbo]` | Transcribe desde la terminal, sin servidor |
 
