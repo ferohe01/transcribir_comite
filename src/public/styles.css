@@ -187,6 +187,13 @@ input, select, textarea { font: inherit; color: inherit; }
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 24px;
+  /* Sin esto la tarjeta se sale de su columna. Es un item de rejilla, y el
+     valor por defecto `min-width: auto` le impide encoger por debajo del
+     ancho minimo de su contenido; el nombre del archivo va con
+     `white-space: nowrap`, asi que ese minimo es el nombre entero. Con un
+     nombre largo la tarjeta llegaba a 593px dentro de una columna de 340 y se
+     montaba sobre la columna derecha. Medido en Chrome: 593 -> 340. */
+  min-width: 0;
 }
 
 .card h2 {

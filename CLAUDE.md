@@ -235,6 +235,22 @@ pruebas de motores simulan `fetch`, asi que no gastan creditos.
 Para probar la interfaz hace falta **ffmpeg en el PATH**; sin el, `/api/health`
 responde 503 y toda subida falla en el analisis inicial.
 
+**Para ver la interfaz sin abrir un navegador a mano**, Chrome en modo headless
+sirve, y es la unica forma de comprobar la maquetacion de verdad en vez de
+razonarla:
+
+```bash
+chrome --headless=new --screenshot=salida.png --window-size=1200,900 file:///.../index.html
+```
+
+Como la aplicacion exige sesion iniciada, lo practico es copiar `src/public` a
+un directorio temporal, quitar el `hidden` de `#appView` y de lo que se quiera
+ver, borrar la etiqueta del script y abrir el archivo. Anadiendo un `<script>`
+que imprima `getBoundingClientRect()` de los elementos en un `<pre>` y usando
+`--dump-dom` en lugar de `--screenshot`, se obtienen **medidas en pixeles**.
+Asi se localizo que una tarjeta de 593px se salia de una columna de 340: a ojo
+solo se veia "las columnas se superponen".
+
 Si esta instalada la skill de diseno `impeccable`, su detector es util tras
 tocar el frontend:
 
