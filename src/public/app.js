@@ -234,7 +234,7 @@ async function loadModels() {
   llm.innerHTML = '';
   for (const model of state.models.llm) llm.add(new Option(model.label, model.id));
   llm.value = state.models.defaultLlm ?? '';
-  actualizarResumenIA();
+  actualizarBotonPlantilla();
 
   if (state.models.asr.length === 0) {
     toast('No hay ningun motor configurado. Revisa las claves de API en .env', 'error');
@@ -289,26 +289,46 @@ function onTemplateChange() {
   const custom = state.templates.custom.find((t) => t.id === value);
   if (custom) $('customPrompt').value = custom.prompt;
 
-  actualizarResumenIA();
+  actualizarBotonPlantilla();
 }
 
 /**
- * Repite en la columna derecha lo elegido en la izquierda.
+ * Decide si se ve el boton de la etapa 2, que vive bajo la plantilla que
+ * aplica.
  *
- * Desde que plantilla y modelo se eligen antes de transcribir, el boton que
- * gasta creditos esta lejos de los desplegables que deciden en que se gastan.
+ * Solo aparece cuando hay algo nuevo que pedirle al modelo: una transcripcion
+ * abierta y una plantilla que todavia no se le ha aplicado con ese mismo
+ * modelo. Si ya esta hecha, el documento esta en su pestana y volver a
+ * generarlo seria pagar dos veces por lo mismo; en su lugar se dice donde
+ * esta, para que la falta del boton no parezca una averia.
+ *
+ * Las instrucciones propias son la excepcion: su texto cambia a voluntad, asi
+ * que nunca cuentan como ya aplicadas.
  */
-function actualizarResumenIA() {
+function actualizarBotonPlantilla() {
+  const hayTranscripcion = Boolean(state.transcript);
+  const esPropia = $('templateSelect').value === '__custom__';
+  const yaHecha = !esPropia && Boolean(resultadoExistente());
+
+  const sePuede = hayTranscripcion && plantillaLista() && !yaHecha;
+  $('applyBtn').hidden = !sePuede;
+  $('applyDone').hidden = !(hayTranscripcion && yaHecha);
+}
+
+/** El resultado ya guardado para la plantilla y el modelo elegidos, si lo hay. */
+function resultadoExistente() {
   const templateId = $('templateSelect').value;
-  const titulo = templateId === '__custom__' ? 'Instrucciones propias' : templateName(templateId);
-  $('templateSummary').textContent =
-    templateId === 'literal'
-      ? 'Plantilla: Transcripcion literal · sin llamar a ningun modelo ni coste adicional.'
-      : `Plantilla: ${titulo} · Modelo: ${llmName($('llmModel').value)}`;
+  const buscado = templateId === '__custom__' ? 'personalizada' : templateId;
+  return state.outputs.find(
+    (o) => o.template_id === buscado && o.llm_model === $('llmModel').value,
+  ) ?? null;
 }
 
 $('templateSelect').addEventListener('change', onTemplateChange);
-$('llmModel').addEventListener('change', actualizarResumenIA);
+$('llmModel').addEventListener('change', actualizarBotonPlantilla);
+// Escribir la primera letra de unas instrucciones propias es lo que las hace
+// aplicables: sin esto el boton no aparecia hasta tocar otro control.
+$('customPrompt').addEventListener('input', actualizarBotonPlantilla);
 
 // Al cambiar la eleccion, el fallo anterior deja de describir lo que va a
 // pasar: se referia a otro modelo o a otra plantilla.
@@ -755,7 +775,6 @@ function resetResultPanel() {
   setOutput('');
   $('resultTitle').textContent = 'Resultado';
   $('resultTitle').title = '';
-  $('templateBar').hidden = true;
   $('stats').hidden = true;
   $('resultNote').hidden = true;
   $('resultError').hidden = true;
@@ -796,14 +815,12 @@ async function openJob(jobId) {
     $('resultError').textContent = job.error;
     $('resultError').hidden = false;
     setOutput('');
-    $('templateBar').hidden = true;
     $('stats').hidden = true;
     return;
   }
 
   if (job.status !== 'done') {
     setOutput('Procesando…');
-    $('templateBar').hidden = true;
     follow(jobId);
     return;
   }
@@ -812,7 +829,6 @@ async function openJob(jobId) {
   state.tabActiva = null;
   actualizarPanelConfig();
   setOutput(transcript?.formatted || transcript?.text || '');
-  $('templateBar').hidden = false;
   renderStats(job, transcript);
   if (transcript) await loadOutputs(transcript.id);
 }
@@ -895,11 +911,7 @@ function plantillaLista() {
 async function encadenarPlantilla() {
   if (!state.transcript) return;
 
-  const templateId = $('templateSelect').value;
-  const buscado = templateId === '__custom__' ? 'personalizada' : templateId;
-  const existente = state.outputs.find(
-    (o) => o.template_id === buscado && o.llm_model === $('llmModel').value,
-  );
+  const existente = resultadoExistente();
 
   if (existente) {
     showOutput(existente.id);
@@ -1134,6 +1146,12 @@ const llmName = (id) => state.models.llm.find((m) => m.id === id)?.label ?? id;
  * la fuente. Sin resultados todavia no hay nada que elegir y la barra sobra.
  */
 function renderOutputs(activeId = null) {
+  // Lo que decide el boton de la etapa 2 --que transcripcion hay abierta y que
+  // plantillas se le han aplicado ya-- cambia exactamente cuando cambian las
+  // pestanas. Recalcularlo aqui lo deja al dia sin repartir la llamada por
+  // media docena de sitios.
+  actualizarBotonPlantilla();
+
   const box = $('results');
   box.innerHTML = '';
 

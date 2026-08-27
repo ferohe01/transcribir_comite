@@ -570,12 +570,22 @@ audio {
 .stats .k { color: var(--muted); font-size: var(--t-xs); }
 .stats .v { font-weight: 600; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
 
-.template-actions { display: flex; gap: 10px; margin: 18px 0 4px; }
+/* El boton de la etapa 2 cuelga de la plantilla que aplica, en mitad de la
+   columna, y no cierra la tarjeta como el de transcribir: necesita su propio
+   aire por debajo para no pegarse al campo siguiente.
 
-/* Que plantilla y que modelo se van a aplicar. Los desplegables estan en
-   la otra columna: sin este renglon habria que mirar alli antes de pulsar
-   un boton que cuesta dinero. */
-.template-summary { font-size: var(--t-sm); color: var(--muted); }
+   Va en gris y no en violeta a proposito. Compartir columna con "Transcribir
+   audio" ponia dos botones violeta identicos a cuatro campos de distancia, y
+   el violeta esta reservado a un unico boton principal. El tamano y el sitio
+   --pegado a la plantilla que aplica-- ya le dan el peso que necesita. */
+.btn.stage2 { margin-bottom: 18px; }
+
+/* Ocupa el hueco del boton cuando esa plantilla ya esta aplicada. */
+.ya-aplicada {
+  font-size: var(--t-xs);
+  color: var(--muted);
+  margin-bottom: 18px;
+}
 
 /* Pestanas del documento. La primera es siempre la transcripcion original:
    nunca se sobrescribe, se compara. */

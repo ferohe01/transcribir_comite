@@ -141,21 +141,24 @@
             </div>
 
             <!--
-              Plantilla y modelo de IA son de la etapa 2, pero se eligen aqui,
+              Modelo de IA y plantilla son de la etapa 2, pero se eligen aqui,
               antes de empezar: son parte de lo que uno decide de la reunion,
               no de lo que descubre al ver el texto. Por eso sobreviven al
               archivo: siguen visibles al abrir una transcripcion del
               historial, cuando el resto de la configuracion ya no pinta nada.
+
+              El modelo va primero y la plantilla despues porque el boton que
+              las ejecuta cuelga de la plantilla, y asi queda pegado a ella.
             -->
+            <div class="field">
+              <label for="llmModel">Modelo de IA</label>
+              <select id="llmModel"></select>
+            </div>
+
             <div class="field">
               <label for="templateSelect">Plantilla</label>
               <select id="templateSelect"></select>
               <p class="hint" id="templateDesc"></p>
-            </div>
-
-            <div class="field">
-              <label for="llmModel">Modelo de IA</label>
-              <select id="llmModel"></select>
             </div>
 
             <div class="field" id="customPromptField" hidden>
@@ -163,6 +166,19 @@
               <textarea id="customPrompt" rows="4" placeholder="Indica qué quieres que la IA haga con la transcripción…"></textarea>
               <button class="btn ghost small" id="saveTemplateBtn" hidden>Guardar como plantilla</button>
             </div>
+
+            <!--
+              Etapa 2, justo bajo la plantilla que aplica. Solo aparece cuando
+              hay algo nuevo que pedirle al modelo; si esa plantilla ya se
+              aplico con ese mismo modelo, en su lugar se dice donde esta el
+              resultado, para que su ausencia no parezca una averia.
+            -->
+            <button class="btn ghost block stage2" id="applyBtn" hidden>
+              <svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla con IA
+            </button>
+            <p class="ya-aplicada" id="applyDone" hidden>
+              Ya aplicada con este modelo: el resultado está en su pestaña.
+            </p>
 
             <!-- Lo que solo sirve para lanzar una transcripcion nueva. -->
             <div id="transcribeFields">
@@ -256,26 +272,6 @@
           <div class="stats" id="stats" hidden></div>
           <div class="alert error" id="resultError" role="alert" hidden></div>
           <div class="alert info" id="resultNote" hidden></div>
-
-          <!--
-            Etapa 2: la plantilla se aplica sobre la transcripcion ya guardada.
-            Cambiar de plantilla no vuelve a transcribir el audio.
-          -->
-          <div id="templateBar" hidden>
-            <h3 class="group-title">
-              <svg class="icon"><use href="#i-wand"/></svg> Procesar con IA
-            </h3>
-
-            <!-- La eleccion vive en la columna izquierda: aqui se repite para
-                 no tener que mirar a otro lado antes de gastar creditos. -->
-            <p class="template-summary" id="templateSummary"></p>
-
-            <div class="template-actions">
-              <button class="btn" id="applyBtn">
-                <svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla con IA
-              </button>
-            </div>
-          </div>
 
           <!--
             Pestañas del documento. La transcripción original nunca se
