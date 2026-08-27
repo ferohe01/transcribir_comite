@@ -34,6 +34,10 @@ const state = {
   },
   transcript: null,   // { id, text, formatted }
   outputs: [],        // resultados de plantilla ya guardados para esa transcripcion
+  // Trabajo lanzado desde el boton con una plantilla ya elegida: al terminar
+  // se aplica sola. Se guarda el id y no un booleano para que no pueda
+  // dispararse sobre otro trabajo que termine mientras tanto.
+  autoPlantillaJobId: null,
   displayed: '',      // texto que se ve en pantalla ahora mismo
   eventSource: null,
 };
@@ -430,6 +434,12 @@ $('startBtn').addEventListener('click', async () => {
 
   try {
     const { job } = await api('/api/jobs', { method: 'POST', body: form });
+    // La plantilla se eligio antes de pulsar: el boton lleva el audio hasta el
+    // documento, no hasta el texto crudo. Sin esto habia que ir a buscar
+    // "Aplicar plantilla con IA" a la otra columna, y volver a pulsar aqui
+    // tras cambiar de plantilla solo repetia la etapa 1 --que ademas suele dar
+    // en la cache-- y devolvia la misma transcripcion de siempre.
+    state.autoPlantillaJobId = plantillaLista() ? job.id : null;
     toast('Trabajo en cola. Puedes cerrar la pestaña: seguirá procesándose.');
     await loadHistory();
     selectJob(job.id);
@@ -468,8 +478,11 @@ function follow(jobId) {
     );
     setTimeout(() => { $('progressCard').hidden = true; }, 1500);
     await loadHistory();
+    const auto = state.autoPlantillaJobId === jobId;
+    state.autoPlantillaJobId = null;
     await openJob(jobId);
     toast('Transcripción completada.');
+    if (auto) await encadenarPlantilla();
   });
 
   source.addEventListener('error', (event) => {
@@ -733,6 +746,7 @@ function confirmarAcciones(etiqueta, accion) {
 function resetResultPanel() {
   cancelarIA();
   $('progressCard').hidden = true;
+  state.autoPlantillaJobId = null;
   state.currentJobId = null;
   state.tabActiva = null;
   state.transcript = null;
@@ -859,6 +873,42 @@ function renderStats(job, transcript) {
 // --- Fase 2: aplicar plantilla --------------------------------------------
 
 $('applyBtn').addEventListener('click', () => aplicarPlantilla());
+
+/** Si hay algo que aplicar: la literal no llama a ningun modelo. */
+function plantillaLista() {
+  const templateId = $('templateSelect').value;
+  if (templateId === 'literal') return false;
+  // Sin instrucciones escritas no hay nada que pedirle al modelo.
+  if (templateId === '__custom__') return Boolean($('customPrompt').value.trim());
+  return true;
+}
+
+/**
+ * Etapa 2 justo despues de la etapa 1, con la plantilla elegida de antemano.
+ *
+ * Si esa misma plantilla y ese mismo modelo ya tienen resultado sobre esta
+ * transcripcion, se abre el que hay en vez de generarlo otra vez: la etapa 1
+ * reutiliza el audio ya transcrito y seria raro que la 2 volviera a cobrar por
+ * un documento identico. El boton "Aplicar plantilla con IA" si regenera
+ * siempre, que para eso se pulsa a mano.
+ */
+async function encadenarPlantilla() {
+  if (!state.transcript) return;
+
+  const templateId = $('templateSelect').value;
+  const buscado = templateId === '__custom__' ? 'personalizada' : templateId;
+  const existente = state.outputs.find(
+    (o) => o.template_id === buscado && o.llm_model === $('llmModel').value,
+  );
+
+  if (existente) {
+    showOutput(existente.id);
+    toast('Esta plantilla ya estaba aplicada con ese modelo: se abre el resultado guardado.');
+    return;
+  }
+
+  await aplicarPlantilla();
+}
 
 async function aplicarPlantilla() {
   if (!state.transcript) return toast('Primero abre una transcripción.', 'error');
