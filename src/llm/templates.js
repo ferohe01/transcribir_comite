@@ -33,7 +33,7 @@ export const BUILTIN_TEMPLATES = {
   },
 
   'evaluacion-proyectos': {
-    name: 'Evaluacion de proyectos',
+    name: 'Transcripcion por proyecto (propia)',
     description: 'Extrae el código del proyecto, los tres comentarios de los evaluadores y el estado.',
     // Conservado literalmente del prompt de la version anterior (legacy/server.js:84-97).
     prompt: [

@@ -230,6 +230,7 @@ async function loadModels() {
   llm.innerHTML = '';
   for (const model of state.models.llm) llm.add(new Option(model.label, model.id));
   llm.value = state.models.defaultLlm ?? '';
+  actualizarResumenIA();
 
   if (state.models.asr.length === 0) {
     toast('No hay ningun motor configurado. Revisa las claves de API en .env', 'error');
@@ -283,9 +284,27 @@ function onTemplateChange() {
   // Al elegir una plantilla propia se precarga su prompt para poder ajustarlo.
   const custom = state.templates.custom.find((t) => t.id === value);
   if (custom) $('customPrompt').value = custom.prompt;
+
+  actualizarResumenIA();
+}
+
+/**
+ * Repite en la columna derecha lo elegido en la izquierda.
+ *
+ * Desde que plantilla y modelo se eligen antes de transcribir, el boton que
+ * gasta creditos esta lejos de los desplegables que deciden en que se gastan.
+ */
+function actualizarResumenIA() {
+  const templateId = $('templateSelect').value;
+  const titulo = templateId === '__custom__' ? 'Instrucciones propias' : templateName(templateId);
+  $('templateSummary').textContent =
+    templateId === 'literal'
+      ? 'Plantilla: Transcripcion literal · sin llamar a ningun modelo ni coste adicional.'
+      : `Plantilla: ${titulo} · Modelo: ${llmName($('llmModel').value)}`;
 }
 
 $('templateSelect').addEventListener('change', onTemplateChange);
+$('llmModel').addEventListener('change', actualizarResumenIA);
 
 // Al cambiar la eleccion, el fallo anterior deja de describir lo que va a
 // pasar: se referia a otro modelo o a otra plantilla.
@@ -316,8 +335,25 @@ function pickFile(file) {
   preview.src = URL.createObjectURL(file);
   $('dropzone').hidden = true;
   $('filePicked').hidden = false;
-  $('uploadSettings').hidden = false;
   $('startBtn').disabled = false;
+  actualizarPanelConfig();
+}
+
+/**
+ * Decide que se ve del panel de configuracion de la izquierda.
+ *
+ * Tiene dos mitades con vidas distintas: lo que solo sirve para lanzar una
+ * transcripcion (motor, idioma, vocabulario, el boton) desaparece sin archivo
+ * elegido, pero plantilla y modelo de IA siguen haciendo falta con una
+ * transcripcion ya abierta desde el historial, que es cuando se pulsa
+ * "Aplicar plantilla con IA".
+ */
+function actualizarPanelConfig() {
+  const conArchivo = Boolean(state.file);
+  const conTranscripcion = Boolean(state.transcript);
+  $('uploadSettings').hidden = !conArchivo && !conTranscripcion;
+  $('asrField').hidden = !conArchivo;
+  $('transcribeFields').hidden = !conArchivo;
 }
 
 // La zona de subida es una <label> con el input dentro, asi que el clic y la
@@ -349,8 +385,8 @@ function soltarArchivo() {
   $('preview').removeAttribute('src');
   $('dropzone').hidden = false;
   $('filePicked').hidden = true;
-  $('uploadSettings').hidden = true;
   $('startBtn').disabled = true;
+  actualizarPanelConfig();
 }
 
 $('removeFile').addEventListener('click', () => {
@@ -709,6 +745,7 @@ function resetResultPanel() {
   $('stats').hidden = true;
   $('resultNote').hidden = true;
   $('resultError').hidden = true;
+  actualizarPanelConfig();
 }
 
 function selectJob(jobId) {
@@ -730,6 +767,11 @@ async function openJob(jobId) {
   $('resultNote').hidden = true;
   state.outputs = [];
   state.tabActiva = null;
+  // Se suelta ya la anterior: sin esto un trabajo fallido o a medias dejaba
+  // vigente la transcripcion del trabajo previo, y "Aplicar plantilla con IA"
+  // la habria procesado a ella.
+  state.transcript = null;
+  actualizarPanelConfig();
   renderOutputs();
 
   const { job, transcript } = await api(`/api/jobs/${jobId}`);
@@ -754,6 +796,7 @@ async function openJob(jobId) {
 
   state.transcript = transcript;
   state.tabActiva = null;
+  actualizarPanelConfig();
   setOutput(transcript?.formatted || transcript?.text || '');
   $('templateBar').hidden = false;
   renderStats(job, transcript);

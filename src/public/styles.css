@@ -247,6 +247,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .field textarea:focus { border-color: var(--brand); }
 
 .field textarea { resize: vertical; min-height: 74px; font-family: inherit; }
+.field > .btn { margin-top: 10px; }
 .field .hint { font-size: var(--t-xs); color: var(--muted); margin-top: 6px; }
 .field .hint .cost { display: block; font-variant-numeric: tabular-nums; }
 
@@ -570,6 +571,11 @@ audio {
 .stats .v { font-weight: 600; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
 
 .template-actions { display: flex; gap: 10px; margin: 18px 0 4px; }
+
+/* Que plantilla y que modelo se van a aplicar. Los desplegables estan en
+   la otra columna: sin este renglon habria que mirar alli antes de pulsar
+   un boton que cuesta dinero. */
+.template-summary { font-size: var(--t-sm); color: var(--muted); }
 
 /* Pestanas del documento. La primera es siempre la transcripcion original:
    nunca se sobrescribe, se compara. */

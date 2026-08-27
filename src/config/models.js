@@ -177,7 +177,9 @@ export const LLM_MODELS = {
 };
 
 export const DEFAULT_ASR = 'groq-whisper-turbo';
-export const DEFAULT_LLM = 'gemini-flash';
+// Luna es la eleccion por defecto de la etapa 2. Si no hay OPENAI_API_KEY,
+// availableModels() cae al primer modelo con clave configurada.
+export const DEFAULT_LLM = 'openai-luna';
 
 /** Un modelo esta disponible si su clave de API esta configurada. */
 export function isAvailable(entry) {

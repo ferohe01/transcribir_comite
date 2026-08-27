@@ -134,35 +134,62 @@
           <div id="uploadSettings" hidden>
             <h3 class="group-title">Configuración</h3>
 
-            <div class="field">
+            <div class="field" id="asrField">
               <label for="asrModel">Motor de transcripción</label>
               <select id="asrModel"></select>
               <p class="hint" id="asrHint"></p>
             </div>
 
+            <!--
+              Plantilla y modelo de IA son de la etapa 2, pero se eligen aqui,
+              antes de empezar: son parte de lo que uno decide de la reunion,
+              no de lo que descubre al ver el texto. Por eso sobreviven al
+              archivo: siguen visibles al abrir una transcripcion del
+              historial, cuando el resto de la configuracion ya no pinta nada.
+            -->
             <div class="field">
-              <label for="language">Idioma</label>
-              <select id="language">
-                <option value="">Detectar automáticamente</option>
-                <option value="es">Español</option>
-                <option value="en">Inglés</option>
-                <option value="pt">Portugués</option>
-                <option value="fr">Francés</option>
-                <option value="de">Alemán</option>
-                <option value="it">Italiano</option>
-              </select>
-              <p class="hint">Seleccionar el idioma puede acelerar el proceso y mejorar la precisión.</p>
+              <label for="templateSelect">Plantilla</label>
+              <select id="templateSelect"></select>
+              <p class="hint" id="templateDesc"></p>
             </div>
 
             <div class="field">
-              <label for="hint">Vocabulario opcional</label>
-              <textarea id="hint" rows="2" placeholder="Nombres propios, siglas o términos técnicos presentes en el audio"></textarea>
-              <p class="hint">Ayuda al modelo a reconocer correctamente términos poco frecuentes.</p>
+              <label for="llmModel">Modelo de IA</label>
+              <select id="llmModel"></select>
             </div>
 
-            <button class="btn block" id="startBtn" disabled>
-              <svg class="icon"><use href="#i-mic"/></svg> Transcribir audio
-            </button>
+            <div class="field" id="customPromptField" hidden>
+              <label for="customPrompt">Instrucciones</label>
+              <textarea id="customPrompt" rows="4" placeholder="Indica qué quieres que la IA haga con la transcripción…"></textarea>
+              <button class="btn ghost small" id="saveTemplateBtn" hidden>Guardar como plantilla</button>
+            </div>
+
+            <!-- Lo que solo sirve para lanzar una transcripcion nueva. -->
+            <div id="transcribeFields">
+              <div class="field">
+                <label for="language">Idioma</label>
+                <select id="language">
+                  <option value="">Detectar automáticamente</option>
+                  <option value="es">Español</option>
+                  <option value="en">Inglés</option>
+                  <option value="pt">Portugués</option>
+                  <option value="fr">Francés</option>
+                  <option value="de">Alemán</option>
+                  <option value="it">Italiano</option>
+                </select>
+                <p class="hint">Seleccionar el idioma puede acelerar el proceso y mejorar la precisión.</p>
+              </div>
+
+              <div class="field">
+                <label for="hint">Vocabulario opcional</label>
+                <textarea id="hint" rows="2" placeholder="Nombres propios, siglas o términos técnicos presentes en el audio"></textarea>
+                <p class="hint">Ayuda al modelo a reconocer correctamente términos poco frecuentes.</p>
+              </div>
+
+              <button class="btn block" id="startBtn" disabled>
+                <svg class="icon"><use href="#i-mic"/></svg> Transcribir audio
+              </button>
+            </div>
           </div>
         </section>
 
@@ -238,29 +265,15 @@
             <h3 class="group-title">
               <svg class="icon"><use href="#i-wand"/></svg> Procesar con IA
             </h3>
-            <div class="row">
-              <div class="field">
-                <label for="templateSelect">Plantilla</label>
-                <select id="templateSelect"></select>
-              </div>
-              <div class="field">
-                <label for="llmModel">Modelo de IA</label>
-                <select id="llmModel"></select>
-              </div>
-            </div>
 
-            <p class="hint" id="templateDesc"></p>
-
-            <div class="field" id="customPromptField" hidden>
-              <label for="customPrompt">Instrucciones</label>
-              <textarea id="customPrompt" rows="4" placeholder="Indica qué quieres que la IA haga con la transcripción…"></textarea>
-            </div>
+            <!-- La eleccion vive en la columna izquierda: aqui se repite para
+                 no tener que mirar a otro lado antes de gastar creditos. -->
+            <p class="template-summary" id="templateSummary"></p>
 
             <div class="template-actions">
               <button class="btn" id="applyBtn">
                 <svg class="icon"><use href="#i-wand"/></svg> Aplicar plantilla con IA
               </button>
-              <button class="btn ghost" id="saveTemplateBtn" hidden>Guardar como plantilla</button>
             </div>
           </div>
 
