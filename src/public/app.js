@@ -38,6 +38,9 @@ const state = {
   // se aplica sola. Se guarda el id y no un booleano para que no pueda
   // dispararse sobre otro trabajo que termine mientras tanto.
   autoPlantillaJobId: null,
+  // Este audio ya esta en cola o transcrito: "Transcribir audio" sobra hasta
+  // que cambie algo de la etapa 1.
+  transcripcionLanzada: false,
   displayed: '',      // texto que se ve en pantalla ahora mismo
   eventSource: null,
 };
@@ -258,6 +261,17 @@ function updateAsrHint() {
 
 $('asrModel').addEventListener('change', updateAsrHint);
 
+/** Tocar un ajuste de la etapa 1 devuelve el boton: hay algo distinto que hacer. */
+function volverAOfrecerTranscribir() {
+  if (!state.transcripcionLanzada) return;
+  state.transcripcionLanzada = false;
+  actualizarPanelConfig();
+}
+
+$('asrModel').addEventListener('change', volverAOfrecerTranscribir);
+$('language').addEventListener('change', volverAOfrecerTranscribir);
+$('hint').addEventListener('input', volverAOfrecerTranscribir);
+
 async function loadTemplates() {
   state.templates = await api('/api/templates');
 
@@ -360,6 +374,7 @@ function pickFile(file) {
   $('dropzone').hidden = true;
   $('filePicked').hidden = false;
   $('startBtn').disabled = false;
+  state.transcripcionLanzada = false;
   actualizarPanelConfig();
 }
 
@@ -378,6 +393,10 @@ function actualizarPanelConfig() {
   $('uploadSettings').hidden = !conArchivo && !conTranscripcion;
   $('asrField').hidden = !conArchivo;
   $('transcribeFields').hidden = !conArchivo;
+  // En cuanto el trabajo entra en cola, este boton solo puede repetir lo ya
+  // hecho: se retira. Idioma y vocabulario se quedan, que dicen con que se
+  // transcribio.
+  $('startBtn').hidden = !conArchivo || state.transcripcionLanzada;
 }
 
 // La zona de subida es una <label> con el input dentro, asi que el clic y la
@@ -410,6 +429,7 @@ function soltarArchivo() {
   $('dropzone').hidden = false;
   $('filePicked').hidden = true;
   $('startBtn').disabled = true;
+  state.transcripcionLanzada = false;
   actualizarPanelConfig();
 }
 
@@ -460,6 +480,8 @@ $('startBtn').addEventListener('click', async () => {
     // tras cambiar de plantilla solo repetia la etapa 1 --que ademas suele dar
     // en la cache-- y devolvia la misma transcripcion de siempre.
     state.autoPlantillaJobId = plantillaLista() ? job.id : null;
+    state.transcripcionLanzada = true;
+    actualizarPanelConfig();
     toast('Trabajo en cola. Puedes cerrar la pestaña: seguirá procesándose.');
     await loadHistory();
     selectJob(job.id);

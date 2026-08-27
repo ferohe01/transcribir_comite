@@ -574,10 +574,10 @@ audio {
    columna, y no cierra la tarjeta como el de transcribir: necesita su propio
    aire por debajo para no pegarse al campo siguiente.
 
-   Va en gris y no en violeta a proposito. Compartir columna con "Transcribir
-   audio" ponia dos botones violeta identicos a cuatro campos de distancia, y
-   el violeta esta reservado a un unico boton principal. El tamano y el sitio
-   --pegado a la plantilla que aplica-- ya le dan el peso que necesita. */
+   Va en violeta como el de transcribir. No compiten porque casi nunca
+   coinciden: "Transcribir audio" se retira en cuanto el trabajo entra en cola
+   y este no llega hasta que hay texto. En cada momento hay un solo boton
+   principal, que es lo que pide el sistema visual. */
 .btn.stage2 { margin-bottom: 18px; }
 
 /* Ocupa el hueco del boton cuando esa plantilla ya esta aplicada. */
