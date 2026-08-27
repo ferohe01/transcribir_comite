@@ -14,8 +14,12 @@ del navegador era una animacion temporizada, no el estado real.
   segundos con Groq y en minuto y medio con Gemini.
 - **Separa transcribir de procesar.** Primero obtiene la transcripcion literal
   con marcas de tiempo y hablantes; despues aplica una plantilla (acta de
-  reunion, resumen, evaluacion de proyectos, o la tuya). Cambiar de plantilla
-  tarda segundos y no vuelve a transcribir ni a pagar el audio.
+  reunion, resumen, transcripcion por proyecto, o la tuya). Eliges motor,
+  modelo y plantilla de una vez antes de empezar, y un solo boton lleva el
+  audio hasta el documento. Cambiar de plantilla despues tarda segundos y no
+  vuelve a transcribir ni a pagar el audio: la transcripcion se guarda una vez
+  y cada plantilla aplicada se guarda aparte, en su propia pestana, sin
+  sobrescribir el texto original.
 - **Cola de trabajos con progreso real.** Puedes cerrar la pestana: el trabajo
   sigue en el servidor y aparece luego en tu historial.
 - **Varios motores con respaldo automatico.** Groq, OpenAI y Gemini,
@@ -46,6 +50,7 @@ una maquina de 12 nucleos:
 | Total con Gemini 3.7 Flash | 90 s — 40x |
 | Resubir el mismo archivo | 2,3 s (cache) |
 | Aplicar otra plantilla | 8-13 s, sin retranscribir |
+| Repetir una plantilla ya aplicada | 0 s: se abre la guardada, no se vuelve a pagar |
 
 Coste de esa hora de audio: $0,04 con Groq, $0,06 con Gemini.
 
@@ -119,6 +124,12 @@ Comparados sobre el mismo audio de una hora: Groq da la ultima marca en
 01:00:01 para un audio de 01:00:16 (exacta, viene del decodificador), mientras
 que Gemini llegaba a 01:06:50 antes de acotarla. A cambio, Gemini etiqueta
 "Hablante 1/2/3" y limpia mejor el texto.
+
+Esa tabla es la **fase 1**. La **fase 2** --la que aplica la plantilla-- tiene
+su propio catalogo en el mismo archivo (`LLM_MODELS`): Gemini 3.7 Flash y 3.1
+Pro, GPT-5.5, GPT-5 mini y GPT-5.6 Luna, y los GPT-OSS de Groq. Por defecto
+usa **GPT-5.6 Luna**; si su clave no esta configurada, cae al primer modelo que
+si lo este. Ese modelo nunca oye el audio: recibe el texto ya transcrito.
 
 `npm run check-models` consulta las APIs en vivo y avisa de los modelos del
 catalogo que un proveedor haya retirado.

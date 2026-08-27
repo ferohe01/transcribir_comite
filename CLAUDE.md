@@ -33,6 +33,13 @@ Separarlas es lo que hace que cambiar de plantilla cueste segundos en lugar de
 volver a transcribir. La transcripcion se guarda una vez; cada plantilla
 aplicada se guarda aparte en `outputs`, ligada a esa transcripcion.
 
+**La separacion es interna, no una peticion al usuario.** En pantalla las dos
+fases se eligen juntas antes de empezar --motor, modelo de IA y plantilla estan
+seguidos en la columna izquierda-- y el boton de transcribir lleva el audio
+hasta el documento: al terminar la fase 1 encadena la 2 con la plantilla que
+estuviera elegida. Que por dentro sigan separadas es lo que permite despues
+cambiar de plantilla sin volver a transcribir.
+
 Cuando dudes de donde tocar algo, empieza por preguntarte de que fase es.
 
 ---
@@ -55,9 +62,9 @@ Cuando dudes de donde tocar algo, empieza por preguntarte de que fase es.
 `legacy/` es la version anterior, archivada como referencia. No se ejecuta y no
 hay que mantenerla.
 
-**Tamanos**, por si hay que decidir que leer entero: `public/app.js` 864
-lineas, `public/styles.css` 590, `db/index.js` 285, `config/models.js` 257,
-`public/index.html` 245, `routes/jobs.js` 225, `pipeline.js` 202. Ningun otro
+**Tamanos**, por si hay que decidir que leer entero: `public/app.js` 1317
+lineas, `public/styles.css` 762, `db/index.js` 287, `config/models.js` 259,
+`public/index.html` 301, `routes/jobs.js` 225, `pipeline.js` 202. Ningun otro
 archivo pasa de 175.
 
 ---
@@ -108,6 +115,27 @@ viejo y el cambio parecera no surtir efecto.
 Un acierto de cache marca `from_cache = 1` en el trabajo, y la interfaz oculta
 velocidad, fragmentos y coste. Sin eso, reutilizar texto se presentaba como una
 transcripcion instantanea de cero fragmentos a 11000x tiempo real.
+
+### La etapa 2 se encadena sola, pero no se repite sola
+
+Al terminar la fase 1 se aplica la plantilla elegida sin pedir nada mas. Tres
+detalles de `src/public/app.js` que no se ven leyendo por encima:
+
+- **La intencion se guarda como id de trabajo** (`state.autoPlantillaJobId`) y
+  no como un booleano, para que no pueda dispararse sobre otro trabajo que
+  termine mientras tanto.
+- **`encadenarPlantilla()` no regenera lo que ya existe.** Si esa plantilla con
+  ese mismo modelo ya tiene resultado sobre esa transcripcion, abre el guardado.
+  Sin eso, volver a pulsar transcribir sobre el mismo audio --que en la fase 1
+  da en la cache y no cuesta nada-- pagaba otra vez el documento entero.
+  **`applyBtn` si regenera siempre**, que para eso se pulsa a mano.
+- **"Ya aplicada" es plantilla _mas_ modelo.** Con la misma plantilla y otro
+  modelo el documento es otro, asi que vuelve a ofrecerse. Las instrucciones
+  propias nunca cuentan como aplicadas: su texto cambia a voluntad.
+
+`plantillaLista()` es la que decide si hay algo que pedirle al modelo: la
+plantilla literal no llama a ninguno y unas instrucciones propias en blanco
+tampoco.
 
 ### El progreso no viaja por la cola
 
@@ -209,6 +237,36 @@ de color estan medidos y todos cumplen 4,5:1**; el mas ajustado es 5,11. Si
 tocas un color, vuelve a medirlo: el violeta anterior daba 3,66:1 en el boton
 principal, que era su uso mas importante.
 
+**La columna izquierda es la de las decisiones, no la de la fase 1.** Lleva
+motor, modelo de IA, plantilla, idioma y vocabulario, en ese orden. El
+desplegable de la plantilla va **despues** del modelo porque el boton que la
+ejecuta cuelga de ella y asi queda pegado. La derecha se quedo solo con el
+progreso, las metricas y el documento.
+
+Ese panel tiene dos mitades con vidas distintas, y de eso se ocupa
+`actualizarPanelConfig()`:
+
+| | sin archivo | con archivo | tras lanzar |
+|---|---|---|---|
+| Motor, idioma, vocabulario | ocultos | visibles | visibles |
+| Modelo de IA y plantilla | visibles **si hay transcripcion abierta** | visibles | visibles |
+| «Transcribir audio» | oculto | visible | **oculto** |
+
+Modelo y plantilla sobreviven al archivo porque tambien hacen falta con una
+transcripcion abierta desde el historial, que es cuando no hay archivo ninguno.
+Y «Transcribir audio» se retira **cuando el trabajo entra en cola, no al
+pulsarlo**: durante la subida --minutos en un archivo de 500 MB-- su propio
+«Subiendo…» es el unico indicador de que algo pasa. Vuelve si cambia algo de la
+fase 1 (otro archivo, motor, idioma o vocabulario); sin eso se podia elegir otro
+motor y no quedaba ningun boton que lo ejecutara.
+
+**Hay dos botones violeta, y esta bien.** El sistema visual reserva el violeta a
+*un* boton principal, y se cumple porque no coinciden: «Transcribir audio»
+desaparece al entrar en cola y «Aplicar plantilla con IA» no llega hasta que hay
+texto al que aplicar algo. Ese segundo boton solo aparece cuando hay algo nuevo
+que pedirle al modelo (`actualizarBotonPlantilla()`); cuando no, en su hueco se
+dice donde esta el resultado, para que su ausencia no parezca una averia.
+
 **Cuidado con dos cosas al maquetar:**
 
 - Las columnas separan sus tarjetas con `gap` de rejilla, no con
@@ -225,7 +283,7 @@ principal, que era su uso mas importante.
 ## Verificar antes de dar algo por bueno
 
 ```bash
-npm test              # 60 pruebas, sin red, ~5 s
+npm test              # 62 pruebas, sin red, ~5 s
 npm run check-models  # comprueba contra las APIs que los modelos existen
 ```
 
