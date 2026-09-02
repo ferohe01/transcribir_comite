@@ -71,6 +71,11 @@ Para el VPS, sigue **[DEPLOY.md](DEPLOY.md)**: hay una via para servidores con
 Dokploy (`docker-compose.dokploy.yml`, sin Caddy porque Traefik ya cubre el
 HTTPS) y otra para un servidor limpio (`docker-compose.yml`, con Caddy).
 
+Si quien va a desplegarlo es un equipo de sistemas que recibe el proyecto por
+primera vez, **[ENTREGA-TI.md](ENTREGA-TI.md)** reune lo que necesita antes de
+empezar: requisitos del servidor, salidas de red, credenciales que tiene que
+aportar y como llevarse el repositorio a su propio Git.
+
 Para desarrollo local necesitas Node 22+ y ffmpeg en el PATH:
 
 ```bash
